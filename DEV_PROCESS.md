@@ -1,11 +1,13 @@
 # Nakka-Labs — Dev Process Guide
 
 > Status: the one file to read before starting (or resuming) any portfolio
-> app's *engineering process* — separate from `DESIGN_BIBLE.md` (visual
-> identity) and each repo's own `CHECKLIST.md` (what's left on that app).
-> Lives in `clantab-ios` for now, same reason `DESIGN_BIBLE.md` does —
-> only connected repo, most advanced app — belongs at the portfolio level
-> once a `nakka-labs` org repo exists.
+> app's *engineering/agent-handoff process* — the execution-phase
+> counterpart to `PLAN_BIBLE.md` (the planning-phase philosophy: brainstorm
+> honestly, lock decisions, tag CLI vs. Owner work) and `DESIGN_BIBLE.md`
+> (visual identity). Each repo's own `CHECKLIST.md` stays what's left/done
+> on that app specifically. Lives in `clantab-ios` for now, same reason the
+> other two Bibles do — only connected repo, most advanced app — belongs
+> at the portfolio level once a `nakka-labs` org repo exists.
 >
 > **Ratified: pending owner confirmation** (drafted 2026-09-17). Treat as
 > binding once confirmed — this file follows its own P1: it's a process
@@ -71,20 +73,23 @@ isn't covered by a specific rule.
 
 ## P1 — Decisions get locked before code, and locked hard
 
-Before writing a line of implementation, run a *critical* brainstorm (not
-a rubber-stamp one) and produce a short decision list: each item labeled
-`Dn`, a real yes/no plus one-line why, no "TBD" left in as if it were
-settled. ClanTab's monetization call (`D`: free, no IAP — 2026-09-10) is
-the model: it was reasoned from the competitive set and the revenue
-math, not picked and moved on from.
+Same rule as `PLAN_BIBLE.md` §1/§2 — restated here because it's the gate
+this whole file's mechanics sit behind. Before writing a line of
+implementation, run a *critical* brainstorm (not a rubber-stamp one) and
+produce a short decision list: each item labeled `Dn`, a real yes/no plus
+one-line why, no "TBD" left in as if it were settled. ClanTab's
+monetization call (`D`: free, no IAP — 2026-09-10) is the model: it was
+reasoned from the competitive set and the revenue math, not picked and
+moved on from.
 
 ## P2 — One master checklist, not a doc per feature
 
-ClanTab accumulated `NEXT_STEPS.md`, `FEATURE_BACKLOG.md`, `SHIP_PLAN.md`,
-`MANDATORY_LOGIN_PLAN.md`, `ACCESS_TOKEN_PLAN.md`, `NAV_POLISH_PLAN.md`,
-`READINESS_CHECKLIST.md`, `ACCOUNTS_DESIGN.md`, `BACKEND_PLAN.md`,
-`LOGO_BRIEF.md` — ten docs tracking overlapping state, all eventually
-deleted and merged into one `CHECKLIST.md`. Start with the one file.
+ClanTab accumulated a dozen overlapping plan docs (see `CHECKLIST.md`'s
+own header for the exact, authoritative list — don't re-copy that list
+here, it'll drift the way this section's own doc-count already had:
+three different numbers were floating across three files before this
+sentence stopped restating one). All of them got deleted and merged into
+one `CHECKLIST.md`. Start with the one file.
 Technical contract goes in `DESIGN.md`, visual contract in
 `DESIGN_BIBLE.md`, *what's left and what's done* goes in `CHECKLIST.md`
 — nothing else gets a plan doc of its own.
@@ -98,9 +103,10 @@ current at handoff time. If it's gone stale, the item says so explicitly
 
 Each `CHECKLIST.md` item: a rough token budget, 2-4 concrete steps, sized
 so one CLI turn can do it without holding the whole feature in its head.
-`Owner` items (an account, a click, a decision only you can make) get no
-token budget — flag them so they don't get silently attempted or
-silently dropped.
+Items needing a human (an account, a click, a decision only you can
+make) get no token budget and get flagged as such — see `PLAN_BIBLE.md`
+§4 for the CLI-vs-Owner distinction itself; this is just the token-budget
+consequence of it.
 
 ## P4 — Every addressable thing gets a stable short ID
 
@@ -222,6 +228,18 @@ the handoff to not depend on either agent's own memory of the work.
   used in this project's own retrospective notes (`csv_import_splid_fix`,
   `insights_tab_removal_flow_audit`) — formalize it as a habit for every
   session, not just the ones that happened to get written up afterward.
+
+- Cloud `device_bash` sessions can't `rm`/`unlink` files in a connected
+  folder — including git's own lock/tmp files — until the owner grants
+  delete permission for that session, and that grant only reaches the
+  owner as a real prompt while they're actively present; requesting it
+  while they're away gets auto-declined outright. A stale `.git/index.lock`
+  from an interrupted commit will keep blocking every future commit until
+  someone with the toolchain (or a present owner granting delete
+  permission) clears it — confirmed 2026-09-17 after 15+ stale
+  `index.lock.bak*` files had piled up silently since 2026-09-05. `mv`
+  (rename) works without the grant as a stopgap; it just doesn't clean
+  anything up.
 
 ## Known toolchain gaps (update as they change)
 

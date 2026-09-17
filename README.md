@@ -106,9 +106,12 @@ clantab-ios/
 ├── docs/                # privacy policy, App Store metadata, screenshots
 ├── .githooks/pre-push   # local build/test gate (fast feedback, no CI wait) — `make hooks`
 ├── DESIGN.md            # the wire / storage / security contract (§13 = accounts)
+├── CHECKLIST.md         # the one running "what's left / what's done" list
+├── AGENTS.md            # commands, architecture rules, non-goals — read by Antigravity natively
+├── CLAUDE.md            # single `@AGENTS.md` import so Claude Code reads the same rules
 ├── DESIGN_BIBLE.md      # portfolio-wide visual-identity rules (typography, color, icons, motion)
-├── PLAN_BIBLE.md        # portfolio-wide planning process rules
-└── CHECKLIST.md         # the one running "what's left / what's done" list
+├── PLAN_BIBLE.md        # portfolio-wide planning-phase rules (brainstorm honestly, lock decisions)
+└── DEV_PROCESS.md       # portfolio-wide execution/agent-handoff rules (verification, resumability)
 ```
 
 ### Pure core, thin shell

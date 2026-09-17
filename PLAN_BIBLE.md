@@ -2,10 +2,13 @@
 
 > Status: the one file to read before starting or replanning any app in
 > this portfolio. Captures how planning actually happens here — not what
-> to build, `PLAN_BIBLE.md`'s counterpart is `DESIGN_BIBLE.md` for how it
-> looks. App-agnostic; lives in `clantab-ios` for now since it's the only
-> connected repo, same reasoning as `DESIGN_BIBLE.md` — copy or point to
-> this file from any future project, don't rewrite it per-repo.
+> to build (`DESIGN_BIBLE.md`, how it looks) or how execution/agent-handoff
+> works once code is being written (`DEV_PROCESS.md`, its counterpart for
+> that phase — read that one too before running a CLI session). App-agnostic;
+> lives in `clantab-ios` for now since it's the only connected repo, same
+> reasoning as the other two Bibles — point future repos at this file,
+> don't rewrite it or copy it per-repo (see `DEV_PROCESS.md`'s header for
+> why copies drift).
 
 ## Why a shared process, not just shared style
 
@@ -43,24 +46,32 @@ default toward yes; a ₹ cost only clears when there's no reasonable
 effort-only path around it, and even then it's a real decision, not an
 assumed one.
 
-## 4. Every actionable item is tagged [CLI] or [OWNER]
+## 4. Every actionable item is marked CLI or Owner
 
-**[CLI]** — the agent can do it alone: code, docs, research, grounding an
-estimate in real source. **[OWNER]** — needs a human: an account, a
+The agent can do a **CLI** item alone: code, docs, research, grounding an
+estimate in real source. An **Owner** item needs a human: an account, a
 real-world decision, an app-store click, a tool the agent doesn't have.
-Tag every item, in every doc, not just the master index — an untagged
-item is an ambiguous item, and ambiguity here is what stalls a project
-waiting on the wrong party.
+Mark every item, in every doc — in practice this means starting the
+step with "Owner:" when it's theirs, and leaving it unmarked (implicitly
+CLI) otherwise, the convention `CHECKLIST.md` already uses; an unmarked
+item that's actually an Owner item is an ambiguous item, and ambiguity
+here is what stalls a project waiting on the wrong party. (This section
+used to prescribe a bracketed `[CLI]`/`[OWNER]` tag; nothing in the repo
+ever used that literal syntax, so the rule is restated to match the
+convention that's actually in force.)
 
 ## 5. One checklist per project, full stop — not one-per-feature
 
 Doc sprawl — a plan doc per feature, each with its own "suggested order,"
 its own status banner, half of them stale — is a recurring, real failure
-mode past 2-3 plan docs, not a hypothetical (it happened here: eleven
-planning docs collapsed into one `CHECKLIST.md` on 2026-09-07). One file
-per project holds every open to-do and a condensed done history — nothing
-else gets created to track sequencing or status, ever, no matter how
-tempting a "just for this feature" doc feels in the moment. This is
+mode past 2-3 plan docs, not a hypothetical (it happened here: a dozen
+planning docs collapsed into one `CHECKLIST.md` on 2026-09-07 — see that
+file's own header for the exact list; don't re-count it here, that's how
+this sentence ended up quoting a different number than `CHECKLIST.md`
+itself for a while). One file per project holds every open to-do and a
+condensed done history — nothing else gets created to track sequencing or
+status, ever, no matter how tempting a "just for this feature" doc feels
+in the moment. This is
 stricter than "pick one index and let detail docs keep their own order"
 — there are no detail docs for *planning* anymore, only the checklist.
 
