@@ -132,7 +132,8 @@ rename):**
       The marketing site repo's `terms.html`/`privacy.html`/`support.html`/
       `contact.html`/`index.html`/AASA/sitemap/robots.txt **are done**
       2026-09-27 too — same text sweep, applied on the existing local
-      checkout at `/Users/indra/Dev/clantab-website`, branch
+      checkout at `/Users/indra/Dev/palance-website` (renamed from
+      `clantab-website` 2026-09-27), branch
       `rename-palance`, committed but **not pushed** (see below). Not
       swept: the actual image assets (`brand/icon-1024.png`, favicons,
       `screenshots/*.png`) — those need the real new icon + a Palance
@@ -147,7 +148,7 @@ rename):**
       `pages.yml`'s GitHub Pages mirror needed no re-pointing — it just
       followed the rename; `nakka-labs.github.io/palance-ios/` is live
       (200).
-- [ ] Push the marketing-site rebrand: `/Users/indra/Dev/clantab-website`,
+- [ ] Push the marketing-site rebrand: `/Users/indra/Dev/palance-website`,
       branch `rename-palance`, one commit, `make check`-equivalent for a
       static site is just eyeballing it — `git push -u origin
       rename-palance` then merge, or push straight to `main`. Same
