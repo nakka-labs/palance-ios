@@ -89,7 +89,18 @@ rename):**
       **old** namespace (not textually "clantab", so the sweep didn't
       touch it, and it shouldn't be shared with the old app either) —
       needs a fresh `wrangler kv namespace create` + new id here before
-      deploy, still open.
+      deploy, still open. **Attempted 2026-09-27** (Owner said go ahead):
+      the harness's auto-mode permission classifier blocked `wrangler kv
+      namespace list` outright ("Modify Shared Resources") before it got
+      anywhere near creating anything, same block as the `gh repo rename`
+      above. Owner action from `worker/`:
+      `npx wrangler kv namespace create palance-join-codes` (copy the
+      returned id into `wrangler.jsonc`'s `kv_namespaces[0].id`),
+      `npx wrangler r2 bucket create palance-media`,
+      `npx wrangler r2 bucket create palance-media-preview` — or grant
+      the harness permission for `wrangler` write commands
+      (`update-config` skill) so a CLI session can run these itself next
+      time.
 - [x] `AppConfig.swift` `apiBaseURL`: point at the new worker's
       `workers.dev` URL (or the new custom domain, once wired below). Done
       2026-09-27 → `https://palance.nakka-labs.workers.dev/`;
@@ -118,20 +129,39 @@ rename):**
       "Ground-up rename: Palance → Palance", and the 2026-08-29
       Squarely→ClanTab entries below would lose the name they actually
       renamed *from*). Checking off items by hand instead as they land.
-      The marketing site repo's `terms.html`/`privacy-policy.md`/`Home`/
-      `Support`/`Contact` pages are **not done** — that's a separate repo
-      (`nakka-labs/clantab-website`) not checked out here.
+      The marketing site repo's `terms.html`/`privacy.html`/`support.html`/
+      `contact.html`/`index.html`/AASA/sitemap/robots.txt **are done**
+      2026-09-27 too — same text sweep, applied on the existing local
+      checkout at `/Users/indra/Dev/clantab-website`, branch
+      `rename-palance`, committed but **not pushed** (see below). Not
+      swept: the actual image assets (`brand/icon-1024.png`, favicons,
+      `screenshots/*.png`) — those need the real new icon + a Palance
+      build to screenshot, not a text change.
 - [ ] Rename `nakka-labs/clantab-ios` → `nakka-labs/palance-ios` and
       `nakka-labs/clantab-website` → `nakka-labs/palance-website`
       (GitHub Settings — `gh` isn't installed on this Mac, same
       limitation as last time). GitHub auto-redirects the old URLs, not
       urgent, but do it before docs reference the new name to avoid a
       dangling link window. **Update 2026-09-27: `gh` is now installed
-      and authenticated as `nakka-labs`** — this blocker is gone. Not
-      renamed yet pending Owner go-ahead: it's a live public repo (this
-      one is `pages.yml`'s GitHub Pages mirror source too —
-      `nakka-labs.github.io/clantab-ios/` would need re-pointing/checking
-      after a rename), worth a explicit yes before changing its URL.
+      and authenticated as `nakka-labs`, and the Owner said go ahead —
+      but the CLI's own harness blocked both `gh repo rename` and
+      `gh repo clone` itself ("Modify Shared Resources," the auto-mode
+      permission classifier), before ever reaching a `gh`/GitHub problem.**
+      Needs the Owner to either run the two `gh repo rename` commands
+      directly, or grant the harness permission for `gh`/`wrangler`
+      write commands (`update-config` skill) so a CLI session can. Also
+      still open regardless of that: the `clantab-ios` repo is
+      `pages.yml`'s GitHub Pages mirror source
+      (`nakka-labs.github.io/clantab-ios/`) — worth a quick check after
+      the rename that Pages still serves correctly at the new
+      `.../palance-ios/` URL.
+- [ ] Push the marketing-site rebrand: `/Users/indra/Dev/clantab-website`,
+      branch `rename-palance`, one commit, `make check`-equivalent for a
+      static site is just eyeballing it — `git push -u origin
+      rename-palance` then merge, or push straight to `main`. Same
+      harness block as above stopped the CLI from doing this itself
+      (`git push` to a repo it doesn't own the token for trips the same
+      classifier) — Owner action.
 - [x] Delete the stale `.xcodeproj` (gitignored) and
       `cd App && xcodegen generate` fresh, same as last rename. Done
       2026-09-27.
