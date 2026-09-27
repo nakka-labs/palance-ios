@@ -35,7 +35,7 @@ export default defineWorkersProject({
             // The tests check URL shape / signing / auth, never a real R2 round
             // trip; the `MEDIA` binding itself is miniflare's simulated bucket,
             // configured from `wrangler.jsonc`'s `preview_bucket_name`.
-            R2_BUCKET: "clantab-media-test",
+            R2_BUCKET: "palance-media-test",
             R2_ACCOUNT_ID: "test-account-id",
             R2_ACCESS_KEY_ID: "test-access-key-id",
             R2_SECRET_ACCESS_KEY: "test-secret-access-key",

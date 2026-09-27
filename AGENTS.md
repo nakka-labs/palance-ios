@@ -1,28 +1,28 @@
-# ClanTab (iOS)
+# Palance (iOS)
 
-Open-source expense splitter for small groups. Native iOS application powered by a pure Swift core package (`ClanTabKit`). Every user signs in with Apple or Google before creating, joining, or viewing a group — there's no guest tier; the group link (`groupId`, optionally carrying an access token, `DESIGN.md` §1/§2) is still the underlying data-access credential. No payments, no ads.
+Open-source expense splitter for small groups. Native iOS application powered by a pure Swift core package (`PalanceKit`). Every user signs in with Apple or Google before creating, joining, or viewing a group — there's no guest tier; the group link (`groupId`, optionally carrying an access token, `DESIGN.md` §1/§2) is still the underlying data-access credential. No payments, no ads.
 
 ## Commands
-- `make check` — run everything relevant (ClanTabKit + worker + iOS build/tests). Same as what the `pre-push` hook runs; `make hooks` installs it.
-- `swift test --package-path ClanTabKit` or `make test` — the pure Swift core (no Apple frameworks; also runs on the Linux CI)
-- `swift build --package-path ClanTabKit` — build the core package
-- `App/` (the SwiftUI shell) requires Xcode on macOS. `cd App && xcodegen generate`, then the `ClanTab` scheme. See `App/README.md`.
+- `make check` — run everything relevant (PalanceKit + worker + iOS build/tests). Same as what the `pre-push` hook runs; `make hooks` installs it.
+- `swift test --package-path PalanceKit` or `make test` — the pure Swift core (no Apple frameworks; also runs on the Linux CI)
+- `swift build --package-path PalanceKit` — build the core package
+- `App/` (the SwiftUI shell) requires Xcode on macOS. `cd App && xcodegen generate`, then the `Palance` scheme. See `App/README.md`.
 - `worker/` (Cloudflare Worker backend — `DESIGN.md`): `npm --prefix worker ci`, then `make worker-test` / `worker-typecheck` / `worker-dev`. `make worker-deploy` needs `wrangler login`.
 
 ## CI
 - The repo is **public**, so GitHub-hosted runners (Linux and macOS) are unmetered.
-- `.github/workflows/`: `test.yml` (ClanTabKit, Linux) and `worker.yml` (Worker, Linux) run on push. `worker-deploy.yml` deploys on `v*` tags (needs a `CLOUDFLARE_API_TOKEN` secret). `pages.yml` auto-publishes `docs/privacy-policy.md` + `docs/support.html` to `nakka-labs.github.io/clantab-ios/` — now a **secondary mirror**: the canonical, App-Store-referenced Privacy/Support pages moved to `clantab.nakka.dev` (its own repo, `nakka-labs/clantab-website`, on Cloudflare Pages). Those pages are hand-ported from `docs/` here — `docs/privacy-policy.md` / `docs/support.html` stay the upstream source for both.
+- `.github/workflows/`: `test.yml` (PalanceKit, Linux) and `worker.yml` (Worker, Linux) run on push. `worker-deploy.yml` deploys on `v*` tags (needs a `CLOUDFLARE_API_TOKEN` secret). `pages.yml` auto-publishes `docs/privacy-policy.md` + `docs/support.html` to `nakka-labs.github.io/palance-ios/` — now a **secondary mirror**: the canonical, App-Store-referenced Privacy/Support pages moved to `palance.nakka.dev` (its own repo, `nakka-labs/palance-website`, on Cloudflare Pages). Those pages are hand-ported from `docs/` here — `docs/privacy-policy.md` / `docs/support.html` stay the upstream source for both.
 - **The iOS build is NOT in cloud CI** — it runs in the `pre-push` hook on the dev's Mac for fast local feedback. A macOS CI job is now cost-free to add if PR-time checks are wanted; don't add one without a reason.
 
 ## Backend (`worker/`)
-- **Same rules as `ClanTabKit`**: integer minor units only, derived balances, zero runtime dependencies (dev deps like `vitest`/`typescript` are fine). Hand-rolled router (`URLPattern`) over a framework.
-- **Logic mirrors `ClanTabKit`, kept honest by fixtures**: `worker/src/lib/balances.ts` / `simplify.ts` / `validation.ts` are ports of the Swift `Logic/` files. Both implementations run the shared vectors in `test-fixtures/balances/` (`worker/test/logic.test.ts` and `ClanTabKitTests/GoldenParityTests.swift`) — change one language and the other's CI fails until it matches.
+- **Same rules as `PalanceKit`**: integer minor units only, derived balances, zero runtime dependencies (dev deps like `vitest`/`typescript` are fine). Hand-rolled router (`URLPattern`) over a framework.
+- **Logic mirrors `PalanceKit`, kept honest by fixtures**: `worker/src/lib/balances.ts` / `simplify.ts` / `validation.ts` are ports of the Swift `Logic/` files. Both implementations run the shared vectors in `test-fixtures/balances/` (`worker/test/logic.test.ts` and `PalanceKitTests/GoldenParityTests.swift`) — change one language and the other's CI fails until it matches.
 - **Durable Object methods return `Result` / discriminated unions for expected failures, not `throw`** — a thrown error loses its prototype across the RPC boundary, so `instanceof` checks in the router break. Only genuinely-exceptional cases throw (→ 500).
 - **Ordering**: `Date.now()` is not monotonic enough within a DO (rapid RPC calls collide on the same ms). Order by `created_at ASC, rowid ASC`.
 - `DESIGN.md` is the wire/storage/security contract. `make worker-dev` runs `wrangler dev` on `:8787`. `make worker-test` / `worker-typecheck`. Deploy (`make worker-deploy`) needs `wrangler login` first.
 
 ## Architecture Rules
-- **Pure Core Logic in `ClanTabKit`**: `Balances.swift`, `Simplify.swift`, `Validation.swift`, `Insights.swift`, `ActivityFilter.swift`, `Export/Export.swift`, and `Import/CSVImport.swift` are pure functions. No I/O, no network calls, no UI dependencies. If a test needs a mock or a running network server to test business math, move the impure logic elsewhere.
+- **Pure Core Logic in `PalanceKit`**: `Balances.swift`, `Simplify.swift`, `Validation.swift`, `Insights.swift`, `ActivityFilter.swift`, `Export/Export.swift`, and `Import/CSVImport.swift` are pure functions. No I/O, no network calls, no UI dependencies. If a test needs a mock or a running network server to test business math, move the impure logic elsewhere.
 - **Integer Minor Units**: All money amounts are stored and calculated in integer minor units (paise, cents, yen) as `Int` or `Int64`. Never use floating-point types (`Double`, `Float`) for monetary amounts or arithmetic. Convert to/from display units only at the UI formatting edge.
 - **Derived Balances**: Member balances are always derived on read from the collection of expenses and settlements; never cache or persist a mutable "balance" field.
 - **Capability Links**: Each group is addressed by an unguessable capability identifier (`groupId`) and an optional 6-character human-friendly `joinCode`. Possession of the `groupId` is the read/write credential — this is unchanged by accounts.
@@ -53,7 +53,7 @@ Open-source expense splitter for small groups. Native iOS application powered by
 ## Screenshots
 - **Never leave screenshots in the repo tree or a scratchpad.** Any screenshot
   captured (Simulator runs, UI verification, bug repros, App Store assets) is
-  copied to `/Users/indra/Dev/git ignored files keys etc/clantab/Screenshots/`
+  copied to `/Users/indra/Dev/git ignored files keys etc/palance/Screenshots/`
   into a folder named for the capture date (`YYYY-MM-DD/`), e.g.
   `.../Screenshots/2026-09-07/01_group_home.png`. That directory is outside the
   repo and holds the durable copy; the in-repo `local screenshots/` (gitignored)

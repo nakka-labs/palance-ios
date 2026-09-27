@@ -1,4 +1,4 @@
-<title>ClanTab System Map</title>
+<title>Palance System Map</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
@@ -250,7 +250,7 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">Reference diagram · ClanTab</p>
+    <p class="eyebrow">Reference diagram · Palance</p>
     <h1>System Map</h1>
     <p class="lede">Every box below has a permanent ID. Point at one instead of describing it — <span class="mono">"tighten B5"</span> or <span class="mono">"A7 owns too much"</span> is unambiguous; a paragraph pointing at a screenshot isn't. IDs are stable across revisions of this page.</p>
     <div class="howto">
@@ -274,10 +274,10 @@ flowchart TB
     A2["A2 · ViewModels<br/><span style='font-size:11px'>AuthViewModel, GroupViewModel</span>"]
   end
 
-  subgraph L2[" ClanTabKit — shared Swift package "]
+  subgraph L2[" PalanceKit — shared Swift package "]
     direction LR
     A3["A3 · Models &amp; Logic<br/><span style='font-size:11px'>Group/Expense/Settlement, Balances, Simplify, Validation…</span>"]
-    A4["A4 · ClanTabClient<br/><span style='font-size:11px'>network layer — 43 API calls</span>"]
+    A4["A4 · PalanceClient<br/><span style='font-size:11px'>network layer — 43 API calls</span>"]
     A5["A5 · Local Stores<br/><span style='font-size:11px'>Keychain/UserDefaults — session, known groups, coach marks…</span>"]
   end
 
@@ -555,7 +555,7 @@ flowchart LR
         <span class="prio p0">P0 · data corruption</span><span class="est">~15–20k tokens</span>
       </div>
       <div class="goal-line">Goal: amount parsing must never silently produce a wrong number for a supported import — parse it right, or flag it for review. Never complete silently on a bad parse.</div>
-      <div class="field"><div class="field-label">Evidence</div><p class="evidence">ClanTabKit/Sources/ClanTabKit/Import/CSVImport.swift — amount parse unconditionally strips commas before parsing. "1234,56" (EU decimal comma) becomes 123456, not 1234.56. No warning fires.</p></div>
+      <div class="field"><div class="field-label">Evidence</div><p class="evidence">PalanceKit/Sources/PalanceKit/Import/CSVImport.swift — amount parse unconditionally strips commas before parsing. "1234,56" (EU decimal comma) becomes 123456, not 1234.56. No warning fires.</p></div>
       <div class="field"><div class="field-label">Options weighed</div>
         <ul class="options">
           <li class="option"><b>A — full locale-sniffing.</b> Detect US vs EU formatting per file. Most "correct," but there's no real EU sample file to build it against — you'd be guessing at a spec, same mistake as building the pending-approval feature on spec instead of demand.</li>
@@ -568,7 +568,7 @@ flowchart LR
           <li>Add a per-row plausibility check after computing <code>amountMinor</code> (compare against neighboring rows in the same column); on failure, surface the existing import-warning UI instead of importing silently.</li>
           <li>Fix the comma rule per option B above.</li>
           <li>Add tests: the existing Future.csv (US) fixture must still pass unchanged; add a hand-built EU-style fixture asserting the correct amountMinor.</li>
-          <li>Run <code>swift test --package-path ClanTabKit --filter CSVImport</code> yourself before calling this done — don't just claim "make check green."</li>
+          <li>Run <code>swift test --package-path PalanceKit --filter CSVImport</code> yourself before calling this done — don't just claim "make check green."</li>
         </ol>
       </div>
     </div>
@@ -612,7 +612,7 @@ flowchart LR
       </div>
       <div class="field"><div class="field-label">Steps</div>
         <ol class="steps">
-          <li>If the aggregation logic isn't testable outside a live view, extract it into a plain function/type in ClanTabKit first (likely belongs alongside PersonalInsights) — this extraction is itself worth doing on its own.</li>
+          <li>If the aggregation logic isn't testable outside a live view, extract it into a plain function/type in PalanceKit first (likely belongs alongside PersonalInsights) — this extraction is itself worth doing on its own.</li>
           <li>Add InsightsHubViewTests.swift (or extend PersonalInsightsTests): the duplicate-key case, and the "membership resolves late" case.</li>
           <li><code>swift test</code> and <code>make check</code> green.</li>
           <li>Still ask the owner to confirm on the next real-device pass that charts populate — the test proves these two known defects are gone, not that nothing else is wrong.</li>
@@ -816,18 +816,18 @@ flowchart LR
           <tr><th style="width:64px">ID</th><th>Component</th><th>What it is</th><th>Lives in</th></tr>
         </thead>
         <tbody>
-          <tr><td class="id-cell"><span class="id-pill">A1</span></td><td class="name-cell">Screens &amp; Components</td><td class="desc-cell">SwiftUI views the user actually taps through</td><td class="loc-cell">App/ClanTab/Screens, /Components</td></tr>
-          <tr><td class="id-cell"><span class="id-pill">A2</span></td><td class="name-cell">ViewModels</td><td class="desc-cell">Owns app/group state, talks to A4</td><td class="loc-cell">App/ClanTab/ViewModels</td></tr>
-          <tr><td class="id-cell"><span class="id-pill">A3</span></td><td class="name-cell">Models &amp; Logic</td><td class="desc-cell">Pure Swift: entities + balance/split math, shared by app &amp; tests</td><td class="loc-cell">ClanTabKit/Sources/…/Model, /Logic</td></tr>
-          <tr><td class="id-cell"><span class="id-pill">A4</span></td><td class="name-cell">ClanTabClient</td><td class="desc-cell">Every backend call the app can make (43 methods)</td><td class="loc-cell">ClanTabKit/Sources/…/Network</td></tr>
-          <tr><td class="id-cell"><span class="id-pill">A5</span></td><td class="name-cell">Local Stores</td><td class="desc-cell">On-device persistence — session, cached groups, nudges</td><td class="loc-cell">ClanTabKit/Sources/…/Storage</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A1</span></td><td class="name-cell">Screens &amp; Components</td><td class="desc-cell">SwiftUI views the user actually taps through</td><td class="loc-cell">App/Palance/Screens, /Components</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A2</span></td><td class="name-cell">ViewModels</td><td class="desc-cell">Owns app/group state, talks to A4</td><td class="loc-cell">App/Palance/ViewModels</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A3</span></td><td class="name-cell">Models &amp; Logic</td><td class="desc-cell">Pure Swift: entities + balance/split math, shared by app &amp; tests</td><td class="loc-cell">PalanceKit/Sources/…/Model, /Logic</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A4</span></td><td class="name-cell">PalanceClient</td><td class="desc-cell">Every backend call the app can make (43 methods)</td><td class="loc-cell">PalanceKit/Sources/…/Network</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A5</span></td><td class="name-cell">Local Stores</td><td class="desc-cell">On-device persistence — session, cached groups, nudges</td><td class="loc-cell">PalanceKit/Sources/…/Storage</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A6</span></td><td class="name-cell">index.ts router</td><td class="desc-cell">Maps each REST route to a handler, before anything touches a DO</td><td class="loc-cell">worker/src/index.ts</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A7</span></td><td class="name-cell">GroupDO</td><td class="desc-cell">Source of truth for one group's ledger — members, expenses, settlements, comments</td><td class="loc-cell">worker/src/group-do.ts</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A8</span></td><td class="name-cell">UserDO</td><td class="desc-cell">One per signed-in user — identity, which groups they're in, devices, friends</td><td class="loc-cell">worker/src/user-do.ts</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A9</span></td><td class="name-cell">ReportsDO</td><td class="desc-cell">Content-moderation reports, admin-only read</td><td class="loc-cell">worker/src/reports-do.ts</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A10</span></td><td class="name-cell">R2 + KV</td><td class="desc-cell">Object storage for photos/receipts; KV for join-code lookup</td><td class="loc-cell">worker/src/lib/media.ts, join-codes.ts</td></tr>
           <tr><td class="id-cell"><span class="id-pill">A11</span></td><td class="name-cell">APNs</td><td class="desc-cell">Push notification delivery, triggered by A6 on group activity</td><td class="loc-cell">worker/src/lib/apns.ts, notify.ts</td></tr>
-          <tr><td class="id-cell"><span class="id-pill">A12</span></td><td class="name-cell">CloudKit</td><td class="desc-cell">Fire-and-forget backup snapshot; nothing ever reads it back</td><td class="loc-cell">App/ClanTab/CloudKitBackup.swift</td></tr>
+          <tr><td class="id-cell"><span class="id-pill">A12</span></td><td class="name-cell">CloudKit</td><td class="desc-cell">Fire-and-forget backup snapshot; nothing ever reads it back</td><td class="loc-cell">App/Palance/CloudKitBackup.swift</td></tr>
         </tbody>
       </table>
     </div>

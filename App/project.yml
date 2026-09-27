@@ -1,6 +1,6 @@
-# XcodeGen project definition — the source of truth for ClanTab.xcodeproj.
+# XcodeGen project definition — the source of truth for Palance.xcodeproj.
 #
-# The generated `ClanTab.xcodeproj` (and `ClanTab/Info.plist`) are gitignored;
+# The generated `Palance.xcodeproj` (and `Palance/Info.plist`) are gitignored;
 # this YAML is what's version-controlled. Reviewable in diffs, no .pbxproj merge
 # conflicts, and every setting is explicit rather than buried in Xcode's UI.
 # (It originally also let the project be authored on Windows, where there's no
@@ -11,19 +11,19 @@
 # commit the .xcodeproj, and delete this file.
 #
 # Setup (one-time): `brew install xcodegen`
-# Generate + open:  `cd App && xcodegen generate && open ClanTab.xcodeproj`
+# Generate + open:  `cd App && xcodegen generate && open Palance.xcodeproj`
 #                   (or just `make hooks` — `xcodegen generate` runs in the hook)
 
-name: ClanTab
+name: Palance
 options:
-  bundleIdPrefix: com.clantab
+  bundleIdPrefix: com.palance
   deploymentTarget:
     iOS: "17.0"
 
 # Project-wide defaults, inherited by every target below unless a target's
 # own `settings.base` overrides a key (`PRODUCT_BUNDLE_IDENTIFIER` always
 # does). MARKETING_VERSION/CURRENT_PROJECT_VERSION used to be duplicated
-# separately in ClanTab's and ClanTabWidgetExtension's own settings blocks —
+# separately in Palance's and PalanceWidgetExtension's own settings blocks —
 # a real App Store requirement is that an extension's version matches its
 # container app's, and nothing enforced that beyond remembering to bump both
 # lines by hand. One value here can't drift.
@@ -41,20 +41,20 @@ settings:
     CODE_SIGN_STYLE: Automatic
 
 packages:
-  ClanTabKit:
-    path: ../ClanTabKit
+  PalanceKit:
+    path: ../PalanceKit
 
 targets:
-  ClanTab:
+  Palance:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: ClanTab
+      - path: Palance
     dependencies:
-      - package: ClanTabKit
-        product: ClanTabKit
-      - target: ClanTabWidgetExtension
+      - package: PalanceKit
+        product: PalanceKit
+      - target: PalanceWidgetExtension
         embed: true
     # Sign in with Apple (ACCOUNTS_DESIGN.md §5) + push notifications
     # (FEATURE_BACKLOG.md) + CloudKit backup (CHECKLIST.md "CloudKit backup,
@@ -64,7 +64,7 @@ targets:
     # Key generated there and set as the worker's `APNS_*` secrets
     # (`CHECKLIST.md` "Enable real push delivery"; until then
     # `didRegisterForRemoteNotificationsWithDeviceToken` never fires, which is
-    # harmless). CloudKit needs the `iCloud.com.clantab.app` container created
+    # harmless). CloudKit needs the `iCloud.com.palance.app` container created
     # in the portal / CloudKit Dashboard; until then `CKContainer.accountStatus`
     # / the backup write fail and `CloudKitGroupBackup` silently no-ops —
     # everything else works unaffected. App Groups is the one exception that's
@@ -74,31 +74,31 @@ targets:
     # device tokens; Xcode rewrites it to `production` automatically for an
     # Archive build, same as automatic signing handles provisioning.
     entitlements:
-      path: ClanTab/ClanTab.entitlements
+      path: Palance/Palance.entitlements
       properties:
         com.apple.developer.applesignin:
           - Default
         aps-environment: development
         com.apple.security.application-groups:
-          - group.com.clantab.app
+          - group.com.palance.app
         com.apple.developer.icloud-services:
           - CloudKit
         com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.clantab.app
+          - iCloud.com.palance.app
         # Universal Links (`CHECKLIST.md` "Custom domain + Universal Links").
         # `AppConfig.shareLinkBaseURL` builds share links at this host; the AASA
-        # is served from the `nakka-labs/clantab-website` Pages repo, scoped to
+        # is served from the `nakka-labs/palance-website` Pages repo, scoped to
         # `/g/*`. The Associated Domains capability must also be enabled on the
-        # `com.clantab.app` App ID in the Apple Developer portal before a
+        # `com.palance.app` App ID in the Apple Developer portal before a
         # TestFlight build — same portal caveat as the capabilities above. Until
-        # then the `clantab://g/:id` scheme below still works for Simulator
+        # then the `palance://g/:id` scheme below still works for Simulator
         # testing.
         com.apple.developer.associated-domains:
-          - applinks:clantab.nakka.dev
+          - applinks:palance.nakka.dev
     info:
-      path: ClanTab/Info.plist
+      path: Palance/Info.plist
       properties:
-        CFBundleDisplayName: ClanTab
+        CFBundleDisplayName: Palance
         # Reference the build settings so a version bump is a one-line change in
         # `settings.base` below — never a frozen literal in the generated plist.
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -130,22 +130,22 @@ targets:
         # the `aps-environment` entitlement already declared above.
         UIBackgroundModes:
           - remote-notification
-        # `clantab://g/<groupId>` deep link scheme — the fallback path and the
+        # `palance://g/<groupId>` deep link scheme — the fallback path and the
         # only one testable in the Simulator (`xcrun simctl openurl booted
-        # "clantab://g/<groupId>?token=<t>"`). The real share link is a Universal
-        # Link (`https://clantab.nakka.dev/g/:groupId`) — see the
+        # "palance://g/<groupId>?token=<t>"`). The real share link is a Universal
+        # Link (`https://palance.nakka.dev/g/:groupId`) — see the
         # `associated-domains` entitlement above and `AppConfig.shareLinkBaseURL`.
         CFBundleURLTypes:
-          - CFBundleURLSchemes: [clantab]
-            CFBundleURLName: com.clantab.app
+          - CFBundleURLSchemes: [palance]
+            CFBundleURLName: com.palance.app
           # Google Sign-In redirect (MANDATORY_LOGIN_PLAN.md Part 1) — the
           # reversed form of AppConfig.googleClientID. Required for
           # ASWebAuthenticationSession's callback; no Google SDK involved.
           - CFBundleURLSchemes: [com.googleusercontent.apps.785063933196-ieaukpoat5r6v5jjr65315o9rniaaahn]
-            CFBundleURLName: com.clantab.app.google
+            CFBundleURLName: com.palance.app.google
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.clantab.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.palance.app
         # iPhone only. Doesn't hoist to the project-wide settings above —
         # xcodegen silently widens it back to "1,2" (universal) there,
         # apparently applying its own per-target iOS default *after* project
@@ -157,62 +157,62 @@ targets:
   # Home-screen widget (`FEATURE_BACKLOG.md`) — glanceable "you owe / you're
   # owed" for the most-recently-opened group. Reads a snapshot the app
   # writes on every refetch (`GroupViewModel.updateWidgetSnapshot`,
-  # `ClanTabKit`'s `WidgetSnapshotStoring`) from the shared App Group
+  # `PalanceKit`'s `WidgetSnapshotStoring`) from the shared App Group
   # container; makes no network calls of its own ("lightweight refresh
   # path").
-  ClanTabWidgetExtension:
+  PalanceWidgetExtension:
     type: app-extension
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: ClanTabWidget
-      # Shared with the ClanTab target — the extension's only channel for
+      - path: PalanceWidget
+      # Shared with the Palance target — the extension's only channel for
       # AppConfig.appGroupID/sharedDefaults/balanceWidgetKind.
-      - path: ClanTab/AppConfig.swift
+      - path: Palance/AppConfig.swift
     dependencies:
-      - package: ClanTabKit
-        product: ClanTabKit
+      - package: PalanceKit
+        product: PalanceKit
     entitlements:
-      path: ClanTabWidget/ClanTabWidget.entitlements
+      path: PalanceWidget/PalanceWidget.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.clantab.app
+          - group.com.palance.app
     info:
-      path: ClanTabWidget/Info.plist
+      path: PalanceWidget/Info.plist
       properties:
-        CFBundleDisplayName: ClanTab Balance
+        CFBundleDisplayName: Palance Balance
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.clantab.app.widget
-        TARGETED_DEVICE_FAMILY: "1" # see ClanTab's own settings comment
+        PRODUCT_BUNDLE_IDENTIFIER: com.palance.app.widget
+        TARGETED_DEVICE_FAMILY: "1" # see Palance's own settings comment
         SKIP_INSTALL: "YES"
 
   # App-level unit tests (deep-link parsing, group-not-found handling). Pure
   # XCTest, no Simulator UI — runs anywhere, including `ios-build.yml`.
-  ClanTabTests:
+  PalanceTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: ClanTabTests
+      - path: PalanceTests
     dependencies:
-      - target: ClanTab
+      - target: Palance
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.clantab.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.palance.app.tests
         GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
-  ClanTab:
+  Palance:
     build:
       targets:
-        ClanTab: all
-        ClanTabWidgetExtension: all
-        ClanTabTests: [test]
+        Palance: all
+        PalanceWidgetExtension: all
+        PalanceTests: [test]
     test:
       targets:
-        - ClanTabTests
+        - PalanceTests

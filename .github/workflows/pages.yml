@@ -6,7 +6,7 @@ name: Publish site (privacy + support)
 # Nothing else in docs/ (App Store copy, screenshots, branding) is published.
 #
 # One-time setup: repo Settings → Pages → Build and deployment → Source:
-# "GitHub Actions". The site URL is then https://nakka-labs.github.io/clantab-ios/
+# "GitHub Actions". The site URL is then https://nakka-labs.github.io/palance-ios/
 # (shown on the deploy job once it runs).
 
 on:
@@ -39,7 +39,7 @@ jobs:
           mkdir -p _site_src
           {
             echo '---'
-            echo 'title: ClanTab Privacy Policy'
+            echo 'title: Palance Privacy Policy'
             echo '---'
             cat docs/privacy-policy.md
           } > _site_src/index.md
@@ -52,7 +52,7 @@ jobs:
             cat docs/support.html
           } > _site_src/support.html
           cat > _site_src/_config.yml <<'YAML'
-          title: ClanTab
+          title: Palance
           theme: jekyll-theme-primer
           YAML
 

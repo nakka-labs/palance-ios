@@ -1,6 +1,6 @@
 # CSV import: format compatibility matrix
 
-`ImportCSVView` → `CSVImport.parse(_:)` (`ClanTabKit/Sources/ClanTabKit/Import/CSVImport.swift`).
+`ImportCSVView` → `CSVImport.parse(_:)` (`PalanceKit/Sources/PalanceKit/Import/CSVImport.swift`).
 Pure, format-auto-detected from the header row. This doc is the source of
 truth for what's supported, what was fixed, and what's still a gap — update
 it whenever `CSVImport` changes.
@@ -9,7 +9,7 @@ it whenever `CSVImport` changes.
 
 | App | Detection | Fidelity | Notes |
 |---|---|---|---|
-| **ClanTab** (`Export.csv`) | exact header match | lossless round-trip | Own format. `Splits` field is `Name:amount; Name:amount`. |
+| **Palance** (`Export.csv`) | exact header match | lossless round-trip | Own format. `Splits` field is `Name:amount; Name:amount`. |
 | **Splitwise** | header has `cost`+`currency`+`date`+`description` | lossy by construction | Splitwise only exports each person's *signed net* (paid − owed) per row, not the actual splits. We reconstruct a single-payer expense (payer = largest net) and back-solve everyone else's share. A genuine multi-payer expense (two people net-positive on the same row) **cannot** be reconstructed and is skipped with a warning — that's a limit of Splitwise's export, not ours. |
 | **Settle Up** | header has `who paid`+`for whom`+`split amounts` | lossless | Fixed 2026-09-08 (see below). `For whom` / `Split amounts` are parallel `;`-separated lists — no reconstruction needed. `Type` is `expense` or `transfer` (settlement); a transfer's payer ("Who paid") sent the amount to the one person in "For whom". |
 
@@ -28,7 +28,7 @@ both silent — the import screen just said "Couldn't read that file":
    Latin-1 when there's no BOM at all, so a file just opens instead of
    silently failing. `ImportCSVView` now reads bytes (`Data(contentsOf:)`) and
    calls this instead of the old `String(contentsOf:encoding:)`.
-2. **No Settle Up parser existed.** Only ClanTab's own format and Splitwise were
+2. **No Settle Up parser existed.** Only Palance's own format and Splitwise were
    recognized; a correctly-decoded Settle Up file still hit `unrecognizedFormat`.
    Added `parseSettleUp` (see table above).
 3. **Rounding remainder, found against the real file, not a hypothetical.**
@@ -39,14 +39,14 @@ both silent — the import screen just said "Couldn't read that file":
    never more). A strict sum-must-match-exactly check would have silently
    *dropped* those rows. Fixed: when the split sum is within
    `max(1, splitCount)` minor units of the total, the remainder is nudged onto
-   the payer's own share — the same deterministic-remainder rule ClanTab
+   the payer's own share — the same deterministic-remainder rule Palance
    itself uses for equal/percentage splits (`AGENTS.md`). A genuinely wrong
    split (off by more than that) still gets skipped with a warning, not
    silently "corrected."
 
-Verified: `swift test --package-path ClanTabKit --filter CSVImport` (19 cases,
+Verified: `swift test --package-path PalanceKit --filter CSVImport` (19 cases,
 including a UTF-16LE-with-BOM round-trip and the remainder-nudge) and
-`make check` (full ClanTabKit + worker + iOS build) both pass, and the real
+`make check` (full PalanceKit + worker + iOS build) both pass, and the real
 reported file parses to **31 expenses + 4 settlements, 0 warnings** — the 2
 rows that were a rounding paisa short are nudged onto the payer, not dropped.
 (The parser change was first written in a sandbox with no Swift toolchain and
@@ -67,7 +67,7 @@ compiled and ran it unchanged — no behaviour changes were needed.)
   expense" means when descriptions/rounding differ slightly across apps — is
   a real feature, not a one-line fix, and still its own open CHECKLIST item.
   **Interim (2026-09-09):** `ImportCSVView`'s review screen now shows an amber
-  caution above the Import button ("ClanTab won't skip expenses it already
+  caution above the Import button ("Palance won't skip expenses it already
   has. If this file was imported before — or another member imported the same
   trip — every row is added again."), so a re-import isn't silent even though
   it isn't blocked.
@@ -79,8 +79,8 @@ compiled and ran it unchanged — no behaviour changes were needed.)
   locale: with no `.` anywhere in the string, a comma followed by *exactly*
   2 trailing digits can only be a decimal point — a genuine thousands group
   is always exactly 3 digits (`"1,234"` still parses as 1234, unchanged).
-  Verified with `swift test --package-path ClanTabKit --filter CSVImport`
-  (`testParseAmountEUDecimalComma`, `testClanTabEUDecimalComma`), and a
+  Verified with `swift test --package-path PalanceKit --filter CSVImport`
+  (`testParseAmountEUDecimalComma`, `testPalanceEUDecimalComma`), and a
   same-currency-outlier plausibility check (`testImplausibleAmountFlagged`)
   now flags — never silently drops — any row whose amount lands wildly out
   of line with the rest of the same import, as a safety net against this or
@@ -102,7 +102,7 @@ compiled and ran it unchanged — no behaviour changes were needed.)
   could be off by the local UTC offset. Low-impact (a date-only display bug,
   not a money bug) but undocumented until now.
 - **Settle Up's emoji-prefixed categories are kept as-is** (`"🍲 Food"`), not
-  mapped onto ClanTab's plain-text category set. This is a deliberate
+  mapped onto Palance's plain-text category set. This is a deliberate
   choice, not a bug: categories are free text in this app
   (`ExpenseCategory`), so the emoji just becomes part of the category name
   rather than breaking anything. Cosmetic only.

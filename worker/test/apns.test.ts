@@ -28,7 +28,7 @@ async function fakeKey(overrides: Partial<ApnsConfig> = {}): Promise<{ config: A
       keyId: "APNSKEY123",
       teamId: "TEAM123456",
       privateKeyPem: pem,
-      topic: "com.clantab.app",
+      topic: "com.palance.app",
       environment: "sandbox",
       ...overrides,
     },
@@ -43,7 +43,7 @@ describe("apnsConfigFromEnv", () => {
   });
 
   it("defaults to production unless APNS_ENVIRONMENT is exactly 'sandbox'", () => {
-    const base = { APNS_KEY_ID: "a", APNS_TEAM_ID: "b", APNS_PRIVATE_KEY: "c", APNS_TOPIC: "com.clantab.app" };
+    const base = { APNS_KEY_ID: "a", APNS_TEAM_ID: "b", APNS_PRIVATE_KEY: "c", APNS_TOPIC: "com.palance.app" };
     expect(apnsConfigFromEnv(base)?.environment).toBe("production");
     expect(apnsConfigFromEnv({ ...base, APNS_ENVIRONMENT: "sandbox" })?.environment).toBe("sandbox");
     expect(apnsConfigFromEnv({ ...base, APNS_ENVIRONMENT: "typo" })?.environment).toBe("production");
@@ -69,7 +69,7 @@ describe("sendPush", () => {
 
     expect(outcome).toBe("sent");
     expect(seen?.url).toBe("https://api.sandbox.push.apple.com/3/device/deadbeef");
-    expect(seen?.headers.get("apns-topic")).toBe("com.clantab.app");
+    expect(seen?.headers.get("apns-topic")).toBe("com.palance.app");
     expect(seen?.headers.get("apns-push-type")).toBe("alert");
     expect(seen?.headers.get("apns-priority")).toBe("10");
     expect(JSON.parse(seen!.body)).toEqual({

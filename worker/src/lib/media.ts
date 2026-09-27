@@ -74,7 +74,7 @@ export function assertUploadAllowed(contentType: string, contentLength: number):
 // --- key derivation ----------------------------------------------------------
 
 export async function avatarKey(sub: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`clantab-avatar:${sub}`));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`palance-avatar:${sub}`));
   return `avatars/${hex(digest).slice(0, 32)}`;
 }
 

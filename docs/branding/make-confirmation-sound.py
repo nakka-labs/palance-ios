@@ -1,6 +1,6 @@
-"""ClanTab's confirmation sound (DESIGN_BIBLE.md §5) -- one short, soft chime,
+"""Palance's confirmation sound (DESIGN_BIBLE.md §5) -- one short, soft chime,
 played alongside the success haptic on the single most significant confirm
-(ClanTab: settled up). "Confirm, don't decorate": low, brief, a rising two-note
+(Palance: settled up). "Confirm, don't decorate": low, brief, a rising two-note
 figure that resolves.
 
 Writes a 16-bit mono WAV; the Makefile / this script then runs `afconvert` to
@@ -12,8 +12,8 @@ import subprocess
 import wave
 
 SR = 44_100
-OUT_WAV = "/tmp/clantab-settled.wav"
-OUT_CAF = "App/ClanTab/Resources/Sounds/settled.caf"
+OUT_WAV = "/tmp/palance-settled.wav"
+OUT_CAF = "App/Palance/Resources/Sounds/settled.caf"
 
 # A rising perfect fifth that settles: C6 -> G6, the second note entering while
 # the first is still ringing, both on a gentle exponential decay. A touch of

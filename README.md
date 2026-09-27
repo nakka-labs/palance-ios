@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/branding/wordmark.png#gh-light-mode-only" alt="ClanTab" width="340">
-  <img src="docs/branding/wordmark-white.png#gh-dark-mode-only" alt="ClanTab" width="340">
+  <img src="docs/branding/wordmark.png#gh-light-mode-only" alt="Palance" width="340">
+  <img src="docs/branding/wordmark-white.png#gh-dark-mode-only" alt="Palance" width="340">
 </p>
 
-<h1 align="center">ClanTab (iOS)</h1>
+<h1 align="center">Palance (iOS)</h1>
 
 An open-source expense splitter for iOS. Built for small groups (trips, shared apartments, friend circles).
 
@@ -11,9 +11,9 @@ An open-source expense splitter for iOS. Built for small groups (trips, shared a
 
 ---
 
-## What is ClanTab?
+## What is Palance?
 
-ClanTab is a clean, private, and frictionless way for 5–10 friends to share expenses without bloated fintech apps or advertising.
+Palance is a clean, private, and frictionless way for 5–10 friends to share expenses without bloated fintech apps or advertising.
 
 - **Sign in with Apple or Google**: Requests no name or email — just enough to sync your groups across devices and let you rediscover them on a new phone.
 - **No Extra Signup Per Group**: Once you're signed in, create a group and share the link or 6-character code; anyone who won't install the app can still be added by name alone, no account required.
@@ -36,9 +36,9 @@ ClanTab is a clean, private, and frictionless way for 5–10 friends to share ex
 
 ## Architecture Overview
 
-ClanTab is a **pure Swift core** (`ClanTabKit`) behind a **thin SwiftUI shell**
+Palance is a **pure Swift core** (`PalanceKit`) behind a **thin SwiftUI shell**
 (`App/`), talking to a **Cloudflare Worker + Durable Objects** backend
-(`worker/`, deployed at `clantab.nakka-labs.workers.dev`). All the money math
+(`worker/`, deployed at `palance.nakka-labs.workers.dev`). All the money math
 lives in the core; the shell only presents it; the backend recomputes balances
 authoritatively. The sync model is deliberately simple — fetch-on-load,
 refetch-after-write, no optimistic UI, no WebSocket (`DESIGN.md` §7).
@@ -58,10 +58,10 @@ flowchart TB
         screens --> vm
     end
 
-    subgraph kit["ClanTabKit - pure Swift core (no Apple frameworks)"]
+    subgraph kit["PalanceKit - pure Swift core (no Apple frameworks)"]
         model["Model: Group, Member, Expense, Settlement, Balance"]
         logic["Logic: Balances, Simplify, Validation"]
-        client["Network: ClanTabClient, async-await, no 3rd-party HTTP"]
+        client["Network: PalanceClient, async-await, no 3rd-party HTTP"]
         store["Storage: KnownGroups / Session (Keychain) / SyncNudge stores"]
         export["Export: CSV / JSON, pure functions"]
     end
@@ -83,26 +83,26 @@ flowchart TB
     end
 ```
 
-`GroupDO` recomputes balances and the simplified settle-up plan on every read — **always server-side**, never on the client. That `Balances` / `Simplify` / `Validation` logic lives in two languages, Swift (`ClanTabKit/Sources/ClanTabKit/Logic/`) and TypeScript (`worker/src/lib/`), kept byte-identical by the shared golden vectors in `test-fixtures/balances/` that **both** test suites run — a divergence turns one side's CI red. `AppConfig.apiBaseURL` points at the deployed Worker.
+`GroupDO` recomputes balances and the simplified settle-up plan on every read — **always server-side**, never on the client. That `Balances` / `Simplify` / `Validation` logic lives in two languages, Swift (`PalanceKit/Sources/PalanceKit/Logic/`) and TypeScript (`worker/src/lib/`), kept byte-identical by the shared golden vectors in `test-fixtures/balances/` that **both** test suites run — a divergence turns one side's CI red. `AppConfig.apiBaseURL` points at the deployed Worker.
 
 ### Repository layout
 
 ```
-clantab-ios/
-├── ClanTabKit/           # Pure SwiftPM package: domain models, balance math, the
+palance-ios/
+├── PalanceKit/           # Pure SwiftPM package: domain models, balance math, the
 │   │                    # debt-simplification engine, validation, network client, export.
-│   ├── Sources/ClanTabKit/{Model,Logic,Storage,Network,Export,Import}/
-│   └── Tests/ClanTabKitTests/
+│   ├── Sources/PalanceKit/{Model,Logic,Storage,Network,Export,Import}/
+│   └── Tests/PalanceKitTests/
 │
 ├── App/                 # Native SwiftUI shell (iOS 17+, XcodeGen) — see App/README.md
-│   ├── ClanTab/         #   Screens · ViewModels (Group + Auth) · Components · Assets.xcassets
-│   └── ClanTabTests/    #   deep-link routing, group-not-found, AuthViewModel
+│   ├── Palance/         #   Screens · ViewModels (Group + Auth) · Components · Assets.xcassets
+│   └── PalanceTests/    #   deep-link routing, group-not-found, AuthViewModel
 │
 ├── worker/              # Cloudflare Worker + Durable Objects backend — see worker/README.md
 │   ├── src/             #   index.ts (router) · group-do · user-do · lib/ (incl. join-codes, KV)
 │   └── test/            #   pure logic + @cloudflare/vitest-pool-workers integration
 │
-├── test-fixtures/       # Language-neutral golden vectors run by ClanTabKit AND worker
+├── test-fixtures/       # Language-neutral golden vectors run by PalanceKit AND worker
 ├── docs/                # privacy policy, App Store metadata, screenshots
 ├── .githooks/pre-push   # local build/test gate (fast feedback, no CI wait) — `make hooks`
 ├── DESIGN.md            # the wire / storage / security contract (§13 = accounts)
@@ -116,14 +116,14 @@ clantab-ios/
 
 ### Pure core, thin shell
 
-`ClanTabKit` has **zero Apple-framework dependencies in its core logic**, so the
+`PalanceKit` has **zero Apple-framework dependencies in its core logic**, so the
 domain math and its full test suite build and run on any platform the Swift
 toolchain supports — the Linux CI (`.github/workflows/test.yml`) runs them on
 every push, no Simulator or Xcode involved. The `App/` shell is a thin SwiftUI
 layer that needs Xcode on macOS; it's build-verified and run-verified end to
 end against the deployed backend (see `App/README.md`).
 
-_(The project was originally developed on Windows against `ClanTabKit`'s pure
+_(The project was originally developed on Windows against `PalanceKit`'s pure
 core, with the iOS shell built blind and verified by CI. Development is on a
 Mac now.)_
 
@@ -138,9 +138,9 @@ Mac now.)_
 
 ### Running Tests
 ```bash
-make check                          # everything: ClanTabKit + worker + iOS build/tests
-make test                           # just the ClanTabKit suite
-swift test --package-path ClanTabKit # …directly
+make check                          # everything: PalanceKit + worker + iOS build/tests
+make test                           # just the PalanceKit suite
+swift test --package-path PalanceKit # …directly
 make worker-test                    # the Cloudflare Worker suite
 ```
 

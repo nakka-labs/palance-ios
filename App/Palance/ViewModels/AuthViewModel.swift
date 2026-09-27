@@ -1,0 +1,699 @@
+import AuthenticationServices
+import Foundation
+import Observation
+import UIKit
+import UserNotifications
+import os
+import PalanceKit
+
+/// Visible via Console.app/sysdiagnose on a real device — unlike `print()`,
+/// which is silent on a TestFlight/release build (`CHECKLIST.md` D7: device-
+/// token registration failures were otherwise invisible in the field).
+private let logger = Logger(subsystem: "com.palance.app", category: "Auth")
+
+/// Where the signed-in Apple credential stands right now, as reported by
+/// `ASAuthorizationAppleIDProvider.getCredentialState` on launch
+/// (`ACCOUNTS_DESIGN.md` §3). Mapped to a plain enum so the launch-time decision
+/// is a pure function, testable without `AuthenticationServices`.
+enum CredentialStanding: Equatable, Sendable {
+    case authorized
+    case revoked
+    case notFound
+    /// No stored session to check — nothing to do.
+    case noSession
+}
+
+/// Owns the mandatory Apple/Google identity layer (`MANDATORY_LOGIN_PLAN.md`) —
+/// every user signs in before they can create, join, or view a group. `groups`
+/// is the authoritative source for "which groups am I in, as which member"
+/// (`ACCOUNTS_DESIGN.md` §4, §7); there's no guest tier or separate local
+/// identity store to fall back to.
+@MainActor
+@Observable
+final class AuthViewModel {
+    /// What `handleLaunch` should do with a restored session.
+    enum LaunchDecision: Equatable {
+        /// No stored session, or nothing to do.
+        case none
+        /// Keep using the stored token as-is.
+        case keep
+        /// Token still valid but near expiry — trade it for a fresh one.
+        case refresh
+        /// Expired, or the Apple credential was revoked / is gone — sign out.
+        /// There's no guest fallback (`MANDATORY_LOGIN_PLAN.md` Part 3); the
+        /// sign-in gate is all that's left to do.
+        case discard
+    }
+
+    /// The "2nd group or 7 days" threshold for the one-time sync nudge
+    /// (`ACCOUNTS_DESIGN.md` §10).
+    static let nudgeAfter: TimeInterval = 7 * 24 * 60 * 60
+    static let nudgeGroupCount = 2
+
+    private let client: PalanceClient
+    private let sessionStore: SessionStoring
+    private let knownGroups: KnownGroupsStoring
+    private let syncNudge: SyncNudgeStoring
+    private let backupNudge: BackupNudgeStoring
+    /// Timestamp store behind the dashboard's fallback balance reconcile
+    /// (`CHECKLIST.md` "Dashboard fallback sync for missed/denied push").
+    private let dashboardSync: DashboardSyncStoring
+    /// Balance-aging nudge (`FEATURE_BACKLOG.md`) — fed every group's balance
+    /// during a reconcile. Inert by default; `PalanceApp` injects the real one.
+    private let balanceAging: BalanceAgingObserver
+    /// Injectable so tests don't need a real Apple credential. Returns `.noSession`
+    /// when there's nothing stored to check.
+    private let credentialStanding: @Sendable (_ appleUserID: String) async -> CredentialStanding
+
+    private(set) var session: StoredSession?
+    /// The identity's groups from the last sign-in / `myGroups` fetch. The
+    /// authoritative list for a signed-in user (`ACCOUNTS_DESIGN.md` §7) —
+    /// `GroupViewModel.myIdentity` reads this directly
+    /// (`MANDATORY_LOGIN_PLAN.md` Part 3; there's no separate local identity
+    /// store anymore). Also mirrored into `knownGroups` for the start screen's
+    /// offline-friendly list.
+    private(set) var groups: [GroupMembershipSummary] = []
+    private(set) var isBusy = false
+    private(set) var errorMessage: String?
+    /// The signed-in identity's own profile-photo key (`CHECKLIST.md` "Profile
+    /// photos"), or `nil`. Fetched on launch/sign-in; drives what Settings shows.
+    private(set) var myAvatarKey: String?
+    /// A separate busy flag for the photo upload/remove so it doesn't gate the
+    /// "Delete Account" button (which reads `isBusy`).
+    private(set) var isUpdatingAvatar = false
+    /// The signed-in identity's one central display name (`CHECKLIST.md`
+    /// R1), or `nil` if never set. Fetched on launch/sign-in alongside
+    /// `myAvatarKey`; drives Settings' "Your Name" field and whether
+    /// `ClaimMemberView` prompts for a name at all.
+    private(set) var myDisplayName: String?
+    /// A separate busy flag for the name update, same reasoning as
+    /// `isUpdatingAvatar`.
+    private(set) var isUpdatingDisplayName = false
+    /// Mirrors `syncNudge.isDismissed()` so a dismissal re-renders observers.
+    private(set) var syncNudgeDismissed: Bool
+
+    var isSignedIn: Bool { session != nil }
+
+    init(
+        client: PalanceClient,
+        sessionStore: SessionStoring,
+        knownGroups: KnownGroupsStoring,
+        syncNudge: SyncNudgeStoring,
+        backupNudge: BackupNudgeStoring = UserDefaultsBackupNudgeStore(),
+        dashboardSync: DashboardSyncStoring = UserDefaultsDashboardSyncStore(),
+        balanceAging: BalanceAgingObserver = .inert(),
+        credentialStanding: @escaping @Sendable (_ appleUserID: String) async -> CredentialStanding = AuthViewModel.liveCredentialStanding
+    ) {
+        self.client = client
+        self.sessionStore = sessionStore
+        self.knownGroups = knownGroups
+        self.syncNudge = syncNudge
+        self.backupNudge = backupNudge
+        self.dashboardSync = dashboardSync
+        self.balanceAging = balanceAging
+        self.credentialStanding = credentialStanding
+        self.session = sessionStore.load()
+        self.syncNudgeDismissed = syncNudge.isDismissed()
+    }
+
+    // MARK: - Sync nudge (ACCOUNTS_DESIGN.md §10)
+    //
+    // NOTE: unreachable since `MANDATORY_LOGIN_PLAN.md` Part 3 — `StartView`
+    // and `RootView` now gate every path into a group behind `isSignedIn`, so
+    // `!isSignedIn` below can no longer be true inside Group Home. Left as-is
+    // deliberately (out of Part 3's scope, itself harmless); worth deleting
+    // this whole apparatus (this method, `dismissSyncNudge`, `syncNudge`,
+    // `SyncNudgeCard`) in a followup rather than as a side effect of Part 3.
+
+    /// Whether Group Home should show the one-time "sign in to keep your groups"
+    /// card: only for a guest who hasn't dismissed it, once they've reached a
+    /// 2nd group or 7 days of use.
+    func shouldShowSyncNudge(now: Date = Date()) -> Bool {
+        guard !isSignedIn, !syncNudgeDismissed else { return false }
+        guard let firstLaunch = syncNudge.firstLaunchAt() else { return false }
+        let reachedTwoGroups = knownGroups.all().count >= Self.nudgeGroupCount
+        let reachedSevenDays = now.timeIntervalSince(firstLaunch) >= Self.nudgeAfter
+        return reachedTwoGroups || reachedSevenDays
+    }
+
+    func dismissSyncNudge() {
+        syncNudge.dismiss()
+        syncNudgeDismissed = true
+    }
+
+    // MARK: - Backup nudge (FEATURE_BACKLOG.md "Backup, in two tiers")
+
+    /// Whether Group Home should show the occasional "back up your data"
+    /// card — recurring, unlike the sync nudge above: a week after first
+    /// launch, then every `BackupNudge.interval` since it was last shown.
+    /// Reuses `syncNudge.firstLaunchAt()` rather than tracking a second
+    /// first-launch timestamp.
+    func shouldShowBackupNudge(now: Date = Date()) -> Bool {
+        BackupNudge.shouldShow(now: now, lastShownAt: backupNudge.lastShownAt(), firstLaunchAt: syncNudge.firstLaunchAt())
+    }
+
+    /// Reset the nudge's clock — called whichever way the card goes away
+    /// (backed up, or "Not now"), so it stays quiet for a full interval
+    /// either way.
+    func recordBackupNudgeShown(now: Date = Date()) {
+        backupNudge.recordShown(now)
+    }
+
+    // MARK: - Push notifications (FEATURE_BACKLOG.md "Push notifications")
+
+    private static let deviceTokenDefaultsKey = "palance.push.deviceToken"
+
+    /// Register this device's APNs token with the server — called from
+    /// `AppDelegate` once the OS hands it over. No-op while signed out (there's
+    /// no identity to register it against yet); harmless to call repeatedly,
+    /// e.g. on every launch, since the server-side registration is itself
+    /// idempotent. Cached locally so `signOut()` can clean up its own
+    /// registration.
+    func registerDeviceToken(_ deviceToken: String) async {
+        guard let token = session?.token else { return }
+        do {
+            try await client.registerDevice(deviceToken: deviceToken, token: token)
+            UserDefaults.standard.set(deviceToken, forKey: Self.deviceTokenDefaultsKey)
+        } catch {
+            // Best-effort — a registration failure shouldn't surface as a
+            // user-facing error; the next launch tries again.
+            logger.error("registerDeviceToken failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Prompt for push permission right after a fresh sign-in — a real
+    /// decision point, not launch (Apple's own guidance: ask near a moment
+    /// that motivates it). `requestAuthorization` itself is idempotent —
+    /// once the person has answered, it just returns that answer without
+    /// re-prompting, so this is safe to call on every sign-in.
+    private func requestPushAuthorizationIfNeeded() {
+        Task {
+            let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            guard granted else { return }
+            await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+        }
+    }
+
+    // MARK: - Sign in / out
+
+    /// Exchange a verified Apple credential for a session (`ACCOUNTS_DESIGN.md` §5).
+    /// `userID` is `ASAuthorizationAppleIDCredential.user` — stored for the
+    /// launch-time credential-state check.
+    func signIn(identityToken: String, userID: String, authorizationCode: String? = nil) async {
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        do {
+            let response = try await client.signInWithApple(
+                identityToken: identityToken,
+                authorizationCode: authorizationCode
+            )
+            let session = StoredSession(
+                token: response.sessionToken,
+                provider: .apple,
+                appleUserID: userID,
+                expiresAt: response.expiresAt
+            )
+            sessionStore.save(session)
+            self.session = session
+            applyGroups(response.groups ?? [])
+            requestPushAuthorizationIfNeeded()
+            await fetchMyAvatarKey()
+            await fetchMyDisplayName()
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+        }
+    }
+
+    /// Exchange a verified Google credential for a session
+    /// (`MANDATORY_LOGIN_PLAN.md` Part 1). No `userID` to store — Google has no
+    /// client-side revocation check equivalent to Apple's `getCredentialState`,
+    /// so a Google session relies on token expiry alone (see `handleLaunch`).
+    func signInWithGoogle(identityToken: String) async {
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        do {
+            let response = try await client.signInWithGoogle(identityToken: identityToken)
+            let session = StoredSession(token: response.sessionToken, provider: .google, expiresAt: response.expiresAt)
+            sessionStore.save(session)
+            self.session = session
+            applyGroups(response.groups ?? [])
+            requestPushAuthorizationIfNeeded()
+            await fetchMyAvatarKey()
+            await fetchMyDisplayName()
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+        }
+    }
+
+    /// Pull the authoritative group list for the current session and mirror it
+    /// into the local stores (`ACCOUNTS_DESIGN.md` §7). Called on launch and
+    /// after a claim. Silent — a failure just leaves the cached list in place.
+    func refreshGroups() async {
+        guard let token = session?.token else { return }
+        do {
+            applyGroups(try await client.myGroups(token: token).groups)
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            signOut()
+        } catch {
+            // Transient — keep the cached list.
+        }
+    }
+
+    /// The dashboard fallback sync (`CHECKLIST.md` "Dashboard fallback sync for
+    /// missed/denied push"): pull the signed-in member's own balance in every
+    /// group from the server and fold it into `knownGroups`, so the dashboard's
+    /// per-group and cross-group figures stay right even when a push was
+    /// throttled, dropped, or never permitted. Time-boxed — skipped unless
+    /// `force` (pull-to-refresh) or the last reconcile is stale
+    /// (`DashboardReconcile`). Silent: a failure leaves the cache untouched and
+    /// doesn't advance the timestamp, so the next launch retries.
+    func reconcileGroupBalances(force: Bool) async {
+        guard let token = session?.token else { return }
+        guard force || DashboardReconcile.shouldReconcile(lastAt: dashboardSync.lastReconcileAt()) else { return }
+        do {
+            let response = try await client.groupBalances(token: token)
+            let names = Dictionary(knownGroups.all().map { ($0.groupId, $0.name) }, uniquingKeysWith: { a, _ in a })
+            for group in response.groups {
+                knownGroups.updateBalances(groupId: group.groupId, myBalances: group.balances)
+                // Pick up an archive/unarchive done on another device — the
+                // groups list hides archived groups (`CHECKLIST.md` "Archive a
+                // group").
+                knownGroups.setArchivedAt(groupId: group.groupId, archivedAt: group.archivedAt)
+                // Balance-aging nudge (`FEATURE_BACKLOG.md`) — the reconcile is
+                // the one path that sees every group's balance, opened or not.
+                let name = names[group.groupId] ?? ""
+                balanceAging.observe(
+                    groupId: group.groupId,
+                    groupName: name.isEmpty ? "your group" : name,
+                    balances: group.balances
+                )
+            }
+            dashboardSync.recordReconcile(Date())
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            signOut()
+        } catch {
+            // Transient — leave the cache and the timestamp alone.
+        }
+    }
+
+    /// Ensure the private 1:1 tab with `friend` exists, and return its
+    /// `groupId` — safe to call any number of times, from either side
+    /// (`CHECKLIST.md` "Friends/contacts list... + private 1:1 tabs").
+    /// Stores the returned access token exactly like joining any other group,
+    /// so the caller can route straight into `GroupHomeView(groupId:)`.
+    /// `nil` on any failure (signed out, or `friend.groups` is somehow empty).
+    func ensureFriendTab(_ friend: Friend) async -> String? {
+        guard let token = session?.token, let proof = friend.tabProofGroup else { return nil }
+        // My own display name as this friend already knows it — denormalised
+        // onto every membership, so the proof group's is exactly right.
+        let myDisplayName = groups.first { $0.groupId == proof.groupId }?.displayName ?? "Me"
+        do {
+            let response = try await client.ensureFriendTab(
+                token: token,
+                EnsureFriendTabRequest(
+                    groupId: proof.groupId,
+                    theirMemberId: proof.theirMemberId,
+                    myDisplayName: myDisplayName,
+                    theirDisplayName: friend.displayName,
+                    currency: proof.currency
+                )
+            )
+            knownGroups.remember(groupId: response.groupId, accessToken: response.accessToken, hidden: true)
+            return response.groupId
+        } catch {
+            return nil
+        }
+    }
+
+    /// Every other claimed person the caller shares a group with, regardless
+    /// of balance (`CHECKLIST.md` "Friends/contacts list... + private 1:1
+    /// tabs") — the Friends screen's data source. `nil` on failure; the view
+    /// keeps whatever it last showed.
+    func friends() async -> [Friend]? {
+        guard let token = session?.token else { return nil }
+        do {
+            return try await client.friends(token: token).friends
+        } catch {
+            return nil
+        }
+    }
+
+    /// Every person the caller owes/is owed anything with, across every
+    /// group, nonzero-only but with the per-group breakdown `friends()`
+    /// doesn't carry — `FriendDetailView`'s "By group" section
+    /// (`CHECKLIST.md` UX audit [8], folding the old standalone "Settle
+    /// Across Groups" screen's data source in here). `nil` on failure.
+    func peopleAcrossGroups() async -> [CrossGroupPerson]? {
+        guard let token = session?.token else { return nil }
+        do {
+            return try await client.peopleAcrossGroups(token: token).people
+        } catch {
+            return nil
+        }
+    }
+
+    /// Settle every one of `edges` with an ordinary `addSettlement` — the
+    /// bulk "Settle All" action, moved here from the old standalone "Settle
+    /// Across Groups" screen (`CHECKLIST.md` UX audit [8]) so
+    /// `FriendDetailView` can call it too. Returns how many failed (`0` =
+    /// every one succeeded). Passes the session as `bearer` — a cross-group
+    /// edge's `groupId` almost never has a locally-cached access token (it
+    /// came from `/api/auth/people`, not from opening the group), so this
+    /// leans on the claimed-session half of the server's dual-auth
+    /// (`requireGroup`, `DESIGN.md` §1/§8) instead. Found live: the original
+    /// `PersonSettleView.settleAll()` this replaces called `addSettlement`
+    /// with neither a token nor a bearer and 403'd — never actually
+    /// exercised end to end against a group the access token wasn't
+    /// already cached for.
+    func settleAll(_ edges: [CrossGroupEdge]) async -> Int {
+        let token = session?.token
+        var failed = 0
+        for edge in edges {
+            let from = edge.youPay ? edge.myMemberId : edge.theirMemberId
+            let to = edge.youPay ? edge.theirMemberId : edge.myMemberId
+            do {
+                _ = try await client.addSettlement(
+                    groupId: edge.groupId,
+                    AddSettlementRequest(id: UUID().uuidString, fromId: from, toId: to, amountMinor: edge.amountMinor, currency: edge.currency),
+                    bearer: token
+                )
+            } catch {
+                failed += 1
+            }
+        }
+        return failed
+    }
+
+    /// Link a placeholder member in `groupId` to the signed-in identity
+    /// (`ACCOUNTS_DESIGN.md` §6). On success `groups` is updated locally right
+    /// away (so Group Home greets them immediately, even if the follow-up
+    /// refresh below is transiently unreachable) and the authoritative list is
+    /// then refreshed. Returns whether it succeeded; on failure `errorMessage`
+    /// carries the reason.
+    func claim(groupId: String, memberId: String, accessToken: String? = nil) async -> Bool {
+        guard let token = session?.token else { return false }
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        do {
+            let response = try await client.claimMember(groupId: groupId, memberId: memberId, token: token, accessToken: accessToken)
+            upsertGroup(GroupMembershipSummary(groupId: groupId, memberId: response.member.id, displayName: response.member.displayName))
+            knownGroups.remember(groupId: groupId, accessToken: accessToken)
+            await refreshGroups()
+            // If this was the identity's first-ever claim anywhere, the
+            // server just bootstrapped its central name from whatever name
+            // this claim carried (`CHECKLIST.md` R1) — refetch so the local
+            // `myDisplayName` reflects that immediately, not just after the
+            // next launch.
+            if myDisplayName == nil {
+                await fetchMyDisplayName()
+            }
+            return true
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+            return false
+        }
+    }
+
+    /// Store the server list and mirror the groupIds into `knownGroups` so the
+    /// start screen's list works even before the network round-trip resolves.
+    private func applyGroups(_ summaries: [GroupMembershipSummary]) {
+        groups = summaries
+        for summary in summaries {
+            // `hidden` only takes effect the first time this device learns
+            // about the group — see `KnownGroupsStoring.remember`. This is
+            // what keeps a private 1:1 tab (`CHECKLIST.md`) out of the
+            // visible groups list the moment either side's device syncs,
+            // with no separate "ensure" call needed just to see it.
+            knownGroups.remember(groupId: summary.groupId, hidden: summary.hidden)
+        }
+    }
+
+    /// Insert or replace one entry in `groups` by `groupId`, for immediate
+    /// local feedback ahead of a full `refreshGroups()`.
+    private func upsertGroup(_ summary: GroupMembershipSummary) {
+        if let index = groups.firstIndex(where: { $0.groupId == summary.groupId }) {
+            groups[index] = summary
+        } else {
+            groups.insert(summary, at: 0)
+        }
+    }
+
+    /// Drop the local session — back to the sign-in gate (no guest fallback,
+    /// `MANDATORY_LOGIN_PLAN.md` Part 3). There is no server-side revocation
+    /// (`ACCOUNTS_DESIGN.md` §3); the token simply expires on its own.
+    func signOut() {
+        // Best-effort, fire-and-forget — this identity's session is about to
+        // be gone either way, so a failure here just leaves a stale device
+        // token registered until the next `registerDeviceToken` overwrites it
+        // for whoever signs in next (`GroupDO.claimedIdentitiesExcluding`
+        // still only ever notifies this group's actual claimed members).
+        if let token = session?.token, let deviceToken = UserDefaults.standard.string(forKey: Self.deviceTokenDefaultsKey) {
+            Task { try? await client.unregisterDevice(deviceToken: deviceToken, token: token) }
+        }
+        UserDefaults.standard.removeObject(forKey: Self.deviceTokenDefaultsKey)
+        sessionStore.clear()
+        session = nil
+        groups = []
+        myAvatarKey = nil
+    }
+
+    /// Delete the account (Apple Guideline 5.1.1(v), `ACCOUNTS_DESIGN.md` §11):
+    /// every claimed membership reverts to a placeholder and the server-side
+    /// index is wiped. Groups, members, and expenses themselves are
+    /// untouched server-side — but this device's local knowledge of them
+    /// (`KnownGroupsStore`, including each group's cached access token) is
+    /// deliberately dropped here too, so signing back in is a fresh account
+    /// with no groups (`docs/appstore/testflight-pass.md` #9), not a replay
+    /// of this device's cache of groups the now-deleted identity used to be
+    /// claimed in (round-3 playtest, 2026-09-13 — this was previously
+    /// missing, so a deleted account could still see all its old groups on
+    /// sign-back-in). Returns whether it succeeded.
+    func deleteAccount() async -> Bool {
+        guard let token = session?.token else { return false }
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        do {
+            try await client.deleteAccount(token: token)
+            signOut()
+            knownGroups.forgetAll()
+            return true
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            // Already gone server-side — treat as done.
+            signOut()
+            knownGroups.forgetAll()
+            return true
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+            return false
+        }
+    }
+
+    // MARK: - Profile photo (CHECKLIST.md "Profile photos")
+
+    /// Pull the identity's own photo key so Settings can render it on a cold
+    /// launch. Silent — a failure just leaves `myAvatarKey` as-is.
+    func fetchMyAvatarKey() async {
+        guard let token = session?.token else { return }
+        do {
+            myAvatarKey = try await client.myAvatarKey(token: token)
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            signOut()
+        } catch {
+            // Transient — keep whatever we had.
+        }
+    }
+
+    /// Upload `jpegData` as the identity's profile photo: presigned PUT to R2,
+    /// then commit (which fans the key out to every claimed group). On success
+    /// `myAvatarKey` is set; returns the key so the caller can prime the image
+    /// loader with the picked image. `nil` on failure, with `errorMessage` set.
+    func setAvatar(jpegData: Data) async -> String? {
+        guard let token = session?.token else { return nil }
+        isUpdatingAvatar = true
+        errorMessage = nil
+        defer { isUpdatingAvatar = false }
+        do {
+            let ticket = try await client.presignMediaUpload(
+                .avatar, contentType: "image/jpeg", contentLength: jpegData.count, token: token
+            )
+            try await client.uploadImage(jpegData, using: ticket)
+            try await client.setAvatar(token: token)
+            myAvatarKey = ticket.key
+            return ticket.key
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+            return nil
+        }
+    }
+
+    /// Remove the identity's profile photo — clears it across every claimed
+    /// group and deletes the R2 object. Returns the key that was removed (for
+    /// the caller to invalidate in the image loader), or `nil` on failure.
+    func removeAvatar() async -> String? {
+        guard let token = session?.token else { return nil }
+        let removed = myAvatarKey
+        isUpdatingAvatar = true
+        errorMessage = nil
+        defer { isUpdatingAvatar = false }
+        do {
+            try await client.clearAvatar(token: token)
+            myAvatarKey = nil
+            return removed
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+            return nil
+        }
+    }
+
+    // MARK: - Display name (CHECKLIST.md R1 "Universal, identity-level display name")
+
+    /// Pull the identity's own central name so Settings can render it, and
+    /// `ClaimMemberView` can decide whether to prompt for one, on a cold
+    /// launch. Silent — a failure just leaves `myDisplayName` as-is.
+    func fetchMyDisplayName() async {
+        guard let token = session?.token else { return }
+        do {
+            myDisplayName = try await client.myDisplayName(token: token)
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            signOut()
+        } catch {
+            // Transient — keep whatever we had.
+        }
+    }
+
+    /// Set the identity's one central display name — fans out to every
+    /// claimed group's member row server-side. On success `myDisplayName` is
+    /// updated locally too. Returns whether it succeeded, with
+    /// `errorMessage` set on failure.
+    @discardableResult
+    func setDisplayName(_ name: String) async -> Bool {
+        guard let token = session?.token else { return false }
+        isUpdatingDisplayName = true
+        errorMessage = nil
+        defer { isUpdatingDisplayName = false }
+        do {
+            try await client.updateProfile(displayName: name, token: token)
+            myDisplayName = name
+            return true
+        } catch {
+            errorMessage = Self.friendlyMessage(for: error)
+            return false
+        }
+    }
+
+    // MARK: - Launch
+
+    /// On every launch: restore the session, verify the Apple credential is still
+    /// good, and refresh the token if it's near expiry.
+    func handleLaunch() async {
+        syncNudge.recordFirstLaunch(Date()) // no-op after the first launch
+        session = sessionStore.load()
+        guard let current = session else { return }
+
+        // Google has no client-side revocation check — `.noSession` here is a
+        // harmless placeholder; `launchDecision` ignores `standing` entirely for
+        // a Google session and goes by expiry alone.
+        let standing = current.provider == .apple
+            ? await credentialStanding(current.appleUserID ?? "")
+            : .noSession
+        switch Self.launchDecision(session: current, standing: standing, now: Date()) {
+        case .none, .keep:
+            break
+        case .discard:
+            signOut()
+            return
+        case .refresh:
+            await refreshSession()
+        }
+        // Session survived — refresh the authoritative group list (§7) and the
+        // identity's own profile-photo key.
+        if session != nil {
+            await refreshGroups()
+            await fetchMyAvatarKey()
+            await fetchMyDisplayName()
+        }
+    }
+
+    /// Pure launch-time policy (`ACCOUNTS_DESIGN.md` §3).
+    nonisolated static func launchDecision(session: StoredSession?, standing: CredentialStanding, now: Date) -> LaunchDecision {
+        guard let session else { return .none }
+        if session.isExpired(now: now) { return .discard }
+        switch session.provider {
+        case .google:
+            // No client-side revocation check for Google — expiry is the only signal.
+            return session.needsRefresh(now: now) ? .refresh : .keep
+        case .apple:
+            switch standing {
+            case .revoked, .notFound:
+                return .discard
+            case .noSession, .authorized:
+                return session.needsRefresh(now: now) ? .refresh : .keep
+            }
+        }
+    }
+
+    private func refreshSession() async {
+        guard let current = session else { return }
+        do {
+            let response = try await client.refreshSession(token: current.token)
+            let updated = StoredSession(
+                token: response.sessionToken,
+                provider: current.provider,
+                appleUserID: current.appleUserID,
+                expiresAt: response.expiresAt
+            )
+            sessionStore.save(updated)
+            session = updated
+        } catch PalanceClientError.server(let code, _) where code == "INVALID_SESSION" {
+            signOut()
+        } catch {
+            // Transient failure — the current token is still valid, try again next launch.
+        }
+    }
+
+    // MARK: - Helpers
+
+    nonisolated static func friendlyMessage(for error: Error) -> String {
+        switch error as? PalanceClientError {
+        case .server(let code, let message):
+            switch code {
+            case "INVALID_APPLE_TOKEN":
+                return "That Apple sign-in couldn't be verified. Please try again."
+            case "INVALID_GOOGLE_TOKEN":
+                return "That Google sign-in couldn't be verified. Please try again."
+            default:
+                return message
+            }
+        case .notFound, .invalidResponse, .decodingFailed, .none:
+            return "Couldn't reach Palance. Check your connection and try again."
+        }
+    }
+
+    /// The real `getCredentialState` call. Isolated here (and behind the
+    /// injectable closure) so the rest of the type stays testable.
+    static let liveCredentialStanding: @Sendable (_ appleUserID: String) async -> CredentialStanding = { appleUserID in
+        await withCheckedContinuation { continuation in
+            ASAuthorizationAppleIDProvider().getCredentialState(forUserID: appleUserID) { state, _ in
+                switch state {
+                case .authorized:
+                    continuation.resume(returning: .authorized)
+                case .revoked:
+                    continuation.resume(returning: .revoked)
+                case .notFound:
+                    continuation.resume(returning: .notFound)
+                case .transferred:
+                    // App transferred between developer accounts — treat like a
+                    // revoke: force a fresh sign-in.
+                    continuation.resume(returning: .revoked)
+                @unknown default:
+                    // Don't sign someone out over an enum case we don't know.
+                    continuation.resume(returning: .authorized)
+                }
+            }
+        }
+    }
+}

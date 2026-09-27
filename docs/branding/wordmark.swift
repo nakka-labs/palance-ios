@@ -5,7 +5,7 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
-// ClanTab wordmark: the "=" mark + "ClanTab" in SF Pro Rounded Bold, glyphs
+// Palance wordmark: the "=" mark + "Palance" in SF Pro Rounded Bold, glyphs
 // flattened to vector paths so the SVG renders identically without the font.
 // Outputs SVG (dark + white) and PNG (dark + white) into the given directory.
 
@@ -21,12 +21,12 @@ let barH = capH * 0.235
 let barGap = capH * 0.185
 let gapAfterMark = capH * 0.42        // space between mark and first letter
 
-// --- build the "ClanTab" glyph path -----------------------------------------
+// --- build the "Palance" glyph path -----------------------------------------
 let baseFont = NSFont.systemFont(ofSize: fontSize, weight: .bold)
 let roundedDesc = baseFont.fontDescriptor.withDesign(.rounded) ?? baseFont.fontDescriptor
 let ctFont = CTFontCreateWithFontDescriptor(roundedDesc as CTFontDescriptor, fontSize, nil)
 
-let text = "ClanTab"
+let text = "Palance"
 var glyphs = [CGGlyph](repeating: 0, count: text.count)
 let uni = Array(text.unicodeScalars).map { UniChar($0.value) }
 CTFontGetGlyphsForCharacters(ctFont, uni, &glyphs, text.count)
@@ -89,7 +89,7 @@ func lift(_ d: String) -> String { d } // handled per-point via Y(): H - (y). Ad
 
 func svg(markColor: String, textColor: String) -> String {
     """
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \(Int(totalW)) \(Int(H))" width="\(Int(totalW))" height="\(Int(H))" role="img" aria-label="ClanTab">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \(Int(totalW)) \(Int(H))" width="\(Int(totalW))" height="\(Int(H))" role="img" aria-label="Palance">
       <g transform="translate(0,\(String(format: "%.2f", -baseline)))">
         <path d="\(markD)" fill="\(markColor)"/>
         <path d="\(wordD)" fill="\(textColor)"/>

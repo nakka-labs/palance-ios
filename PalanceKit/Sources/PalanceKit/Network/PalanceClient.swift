@@ -1,0 +1,545 @@
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+/// Async/await HTTP client implementing the API contract in `DESIGN.md` §2.
+///
+/// This is the entire sync model (`DESIGN.md` §7): every mutation is a plain POST,
+/// and callers are expected to follow up with `fetchGroupState` to pick up the
+/// server-computed balances and simplified settlements — there's no optimistic UI
+/// and no WebSocket in v1.
+public actor PalanceClient {
+    private let baseURL: URL
+    private let transport: PalanceTransport
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    /// - Parameter baseURL: must have a trailing slash (e.g. `https://palance.example.com/`)
+    ///   so relative API paths resolve correctly.
+    public init(baseURL: URL, transport: PalanceTransport = URLSessionTransport()) {
+        self.baseURL = baseURL
+        self.transport = transport
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
+    }
+
+    public func createGroup(_ request: CreateGroupRequest) async throws -> CreateGroupResponse {
+        try await post("api/groups", body: request)
+    }
+
+    public func resolveJoinCode(_ joinCode: String) async throws -> ResolveJoinCodeResponse {
+        try await get("api/groups/resolve/\(joinCode)")
+    }
+
+    /// - Parameter accessToken: the group's capability-link credential
+    ///   (`ACCESS_TOKEN_PLAN.md`), carried as `?token=`. `nil` only for a
+    ///   group that predates the feature and was never regenerated.
+    public func joinGroup(groupId: String, _ request: JoinGroupRequest, accessToken: String? = nil) async throws -> JoinGroupResponse {
+        try await post("api/groups/\(groupId)/members", body: request, accessToken: accessToken)
+    }
+
+    public func fetchGroupState(groupId: String, accessToken: String? = nil) async throws -> GroupStateResponse {
+        try await get("api/groups/\(groupId)", accessToken: accessToken)
+    }
+
+    public func addExpense(groupId: String, _ request: AddExpenseRequest, accessToken: String? = nil) async throws -> AddExpenseResponse {
+        try await post("api/groups/\(groupId)/expenses", body: request, accessToken: accessToken)
+    }
+
+    /// `bearer` is the escape hatch for a caller that doesn't have this
+    /// group's access token cached locally but does have a claimed session
+    /// for it — the cross-group "Settle All" action (`CHECKLIST.md` UX audit
+    /// [8]) is the one caller that needs it; every group-scoped screen that
+    /// already holds the token keeps passing just `accessToken`.
+    public func addSettlement(
+        groupId: String, _ request: AddSettlementRequest, accessToken: String? = nil, bearer: String? = nil
+    ) async throws -> AddSettlementResponse {
+        try await post("api/groups/\(groupId)/settlements", body: request, bearer: bearer, accessToken: accessToken)
+    }
+
+    /// Post a comment on an expense (`CHECKLIST.md` "Comments on an expense").
+    public func addComment(
+        groupId: String, expenseId: String, _ request: AddCommentRequest, accessToken: String? = nil
+    ) async throws -> AddCommentResponse {
+        try await post("api/groups/\(groupId)/expenses/\(expenseId)/comments", body: request, accessToken: accessToken)
+    }
+
+    /// Active comments on one expense, oldest first — fetched only when the
+    /// expense's own detail sheet opens, never as part of `fetchGroupState`.
+    public func listComments(groupId: String, expenseId: String, accessToken: String? = nil) async throws -> ListCommentsResponse {
+        try await get("api/groups/\(groupId)/expenses/\(expenseId)/comments", accessToken: accessToken)
+    }
+
+    /// Soft-delete a comment — no restore path exists for one, unlike an
+    /// expense/settlement (`CHECKLIST.md`).
+    public func deleteComment(
+        groupId: String, expenseId: String, commentId: String, accessToken: String? = nil, deletedBy: String? = nil
+    ) async throws {
+        let extra = deletedBy.map { [URLQueryItem(name: "deletedBy", value: $0)] } ?? []
+        var request = URLRequest(
+            url: url(
+                for: "api/groups/\(groupId)/expenses/\(expenseId)/comments/\(commentId)",
+                accessToken: accessToken, extraQueryItems: extra
+            )
+        )
+        request.httpMethod = "DELETE"
+        try await performNoContent(request)
+    }
+
+    // MARK: - Group & member settings (DESIGN.md §2)
+
+    /// Rename the group, change its default currency for new expenses, set its
+    /// emoji, and/or archive it (`CHECKLIST.md` "Archive a group"). Existing
+    /// expenses keep their own currency.
+    public func updateGroup(
+        groupId: String, name: String? = nil, currency: String? = nil,
+        emoji: FieldUpdate<String> = .unchanged, archived: Bool? = nil,
+        defaultSplit: FieldUpdate<DefaultSplit> = .unchanged,
+        coverImage: CoverImageUpdate = .unchanged, accessToken: String? = nil
+    ) async throws -> UpdateGroupResponse {
+        try await patch(
+            "api/groups/\(groupId)",
+            body: UpdateGroupRequest(
+                name: name, currency: currency, emoji: emoji, archived: archived,
+                defaultSplit: defaultSplit, coverImage: coverImage
+            ),
+            accessToken: accessToken
+        )
+    }
+
+    /// Rename a member and/or set their UPI VPA (`FEATURE_BACKLOG.md` "UPI
+    /// deep link on Settle Up") — at least one of the two, enforced server-side.
+    public func renameMember(
+        groupId: String,
+        memberId: String,
+        displayName: String? = nil,
+        upiVpa: FieldUpdate<String> = .unchanged,
+        accessToken: String? = nil
+    ) async throws -> JoinGroupResponse {
+        try await patch(
+            "api/groups/\(groupId)/members/\(memberId)",
+            body: UpdateMemberRequest(displayName: displayName, upiVpa: upiVpa),
+            accessToken: accessToken
+        )
+    }
+
+    /// Remove a member. Throws `.server(code: "MEMBER_IN_USE", …)` if they're on
+    /// any expense/settlement, linked to an account, or the last member.
+    public func removeMember(groupId: String, memberId: String, accessToken: String? = nil) async throws {
+        var request = URLRequest(url: url(for: "api/groups/\(groupId)/members/\(memberId)", accessToken: accessToken))
+        request.httpMethod = "DELETE"
+        try await performNoContent(request)
+    }
+
+    /// Fold `memberId`'s entire history onto `into`, then delete `memberId`
+    /// (`CHECKLIST.md` "Merge duplicate members").
+    ///
+    /// **Permanent — there is no undo of any kind.** No soft-delete, no
+    /// restore path (the CloudKit group backup is write-only, `App/Palance/
+    /// CloudKitBackup.swift` — it doesn't help here either). The caller must
+    /// have already gotten explicit confirmation whose title says "can't be
+    /// undone" in plain words before ever calling this — see
+    /// `GroupSettingsView`'s merge action.
+    ///
+    /// Throws `.server(code: "MERGE_CONFLICT", …)` if both members are
+    /// already linked to a signed-in account, or if they already share a
+    /// split on the same expense (they aren't actually the same person).
+    public func mergeMembers(groupId: String, memberId: String, into: String, accessToken: String? = nil) async throws -> JoinGroupResponse {
+        try await post(
+            "api/groups/\(groupId)/members/\(memberId)/merge",
+            body: MergeMemberRequest(into: into),
+            accessToken: accessToken
+        )
+    }
+
+    /// Rotate the group's `access_token` — every previously shared link/code
+    /// stops working immediately (`ACCESS_TOKEN_PLAN.md` Part 1). Needs the
+    /// *current* token (or nothing, for a not-yet-tokened group) to
+    /// authorize, same as any other group route.
+    public func regenerateLink(groupId: String, accessToken: String? = nil) async throws -> RegenerateLinkResponse {
+        try await send("POST", "api/groups/\(groupId)/regenerate-link", bearer: nil, accessToken: accessToken)
+    }
+
+    /// Mint (or fetch the existing) read-only `view_token` for the group
+    /// (`FEATURE_BACKLOG.md` "Read-only web link for balances") — the app
+    /// calls this before sharing a `/g/:groupId/balances` link. Idempotent;
+    /// same auth as any other group route.
+    public func viewLink(groupId: String, accessToken: String? = nil) async throws -> ViewLinkResponse {
+        try await send("POST", "api/groups/\(groupId)/view-link", bearer: nil, accessToken: accessToken)
+    }
+
+    // MARK: - Edit / delete (DESIGN.md §2)
+
+    /// Replace an expense wholesale. `request.id` is ignored — the id in the path
+    /// identifies the row. The server keeps its position in the activity feed.
+    public func updateExpense(groupId: String, expenseId: String, _ request: AddExpenseRequest, accessToken: String? = nil) async throws -> AddExpenseResponse {
+        try await put("api/groups/\(groupId)/expenses/\(expenseId)", body: request, accessToken: accessToken)
+    }
+
+    /// Soft-delete an expense (`FEATURE_BACKLOG.md` "trash, with attribution")
+    /// — splits are kept so `restoreExpense` reconstructs it exactly.
+    /// Idempotent — deleting one that's already trashed still succeeds.
+    /// - Parameter deletedBy: the acting member's id, for the trash listing's
+    ///   attribution — client-supplied, not cryptographically verified.
+    public func deleteExpense(groupId: String, expenseId: String, accessToken: String? = nil, deletedBy: String? = nil) async throws {
+        let extra = deletedBy.map { [URLQueryItem(name: "deletedBy", value: $0)] } ?? []
+        var request = URLRequest(
+            url: url(for: "api/groups/\(groupId)/expenses/\(expenseId)", accessToken: accessToken, extraQueryItems: extra)
+        )
+        request.httpMethod = "DELETE"
+        try await performNoContent(request)
+    }
+
+    /// Undo a soft delete — the "Undo" toast and "Recently Deleted" screen's
+    /// Restore both call this. Throws `.notFound` if the id doesn't exist or
+    /// isn't currently trashed.
+    public func restoreExpense(groupId: String, expenseId: String, accessToken: String? = nil) async throws -> AddExpenseResponse {
+        try await send("POST", "api/groups/\(groupId)/expenses/\(expenseId)/restore", bearer: nil, accessToken: accessToken)
+    }
+
+    public func updateSettlement(groupId: String, settlementId: String, _ request: AddSettlementRequest, accessToken: String? = nil) async throws -> AddSettlementResponse {
+        try await put("api/groups/\(groupId)/settlements/\(settlementId)", body: request, accessToken: accessToken)
+    }
+
+    /// Soft-delete a settlement — see `deleteExpense` for the full semantics.
+    public func deleteSettlement(groupId: String, settlementId: String, accessToken: String? = nil, deletedBy: String? = nil) async throws {
+        let extra = deletedBy.map { [URLQueryItem(name: "deletedBy", value: $0)] } ?? []
+        var request = URLRequest(
+            url: url(for: "api/groups/\(groupId)/settlements/\(settlementId)", accessToken: accessToken, extraQueryItems: extra)
+        )
+        request.httpMethod = "DELETE"
+        try await performNoContent(request)
+    }
+
+    /// Undo a soft delete — see `restoreExpense`.
+    public func restoreSettlement(groupId: String, settlementId: String, accessToken: String? = nil) async throws -> AddSettlementResponse {
+        try await send("POST", "api/groups/\(groupId)/settlements/\(settlementId)/restore", bearer: nil, accessToken: accessToken)
+    }
+
+    /// This group's soft-deleted expenses/settlements, newest-deleted first —
+    /// the "Recently Deleted" screen (`FEATURE_BACKLOG.md`).
+    public func trash(groupId: String, accessToken: String? = nil) async throws -> TrashResponse {
+        try await get("api/groups/\(groupId)/trash", accessToken: accessToken)
+    }
+
+    /// File a content report — Apple Guideline 1.2's report mechanism for
+    /// shared user-generated content (`SHIP_PLAN.md` Track 3 §7). Doesn't
+    /// require being signed in, same trust model as any other group route.
+    public func report(groupId: String, target: ReportTarget, reason: String, details: String? = nil, accessToken: String? = nil) async throws -> ReportResponse {
+        try await post("api/groups/\(groupId)/report", body: ReportRequest(target: target, reason: reason, details: details), accessToken: accessToken)
+    }
+
+    /// "Remind" button on an outstanding balance (`CHECKLIST.md`) — nudges
+    /// `memberId` (the debtor) that they owe `fromMemberId` (the asker, i.e.
+    /// the signed-in user tapping the button). Always succeeds at the HTTP
+    /// level; `RemindResponse.sent` reports whether a push actually went out.
+    public func remind(groupId: String, memberId: String, fromMemberId: String, accessToken: String? = nil) async throws -> RemindResponse {
+        try await post(
+            "api/groups/\(groupId)/members/\(memberId)/remind", body: RemindRequest(fromMemberId: fromMemberId), accessToken: accessToken
+        )
+    }
+
+    // MARK: - Accounts (ACCOUNTS_DESIGN.md §5–§7, §11)
+
+    /// Exchange an Apple identity token for a session token + the identity's
+    /// group list. Called once per sign-in. `authorizationCode` (from the same
+    /// credential) lets the server set up revocation for account deletion.
+    public func signInWithApple(identityToken: String, authorizationCode: String? = nil) async throws -> SessionResponse {
+        try await post(
+            "api/auth/apple",
+            body: AppleSignInRequest(identityToken: identityToken, authorizationCode: authorizationCode)
+        )
+    }
+
+    /// Exchange a Google identity token for a session token + the identity's
+    /// group list. Called once per sign-in (`MANDATORY_LOGIN_PLAN.md` Part 1).
+    public func signInWithGoogle(identityToken: String) async throws -> SessionResponse {
+        try await post("api/auth/google", body: GoogleSignInRequest(identityToken: identityToken))
+    }
+
+    /// Trade a still-valid session token for a fresh one (§3). The app calls this
+    /// on launch when the current token is within ~7 days of expiry.
+    public func refreshSession(token: String) async throws -> SessionResponse {
+        try await send("POST", "api/auth/refresh", bearer: token)
+    }
+
+    /// The signed-in identity's groups, authoritative from the server (§7).
+    public func myGroups(token: String) async throws -> MyGroupsResponse {
+        try await get("api/auth/groups", bearer: token)
+    }
+
+    /// Cross-group settling: the net owed to/from each linked person across
+    /// shared groups (`FEATURE_BACKLOG.md`). "Settle All" then fires an ordinary
+    /// `addSettlement` per `CrossGroupEdge`.
+    public func peopleAcrossGroups(token: String) async throws -> PeopleAcrossGroupsResponse {
+        try await get("api/auth/people", bearer: token)
+    }
+
+    /// The signed-in member's own per-currency balance in every group — the
+    /// dashboard fallback when a push was missed or notifications are denied
+    /// (`CHECKLIST.md` "Dashboard fallback sync for missed/denied push").
+    public func groupBalances(token: String) async throws -> GroupBalancesResponse {
+        try await get("api/auth/groups/balances", bearer: token)
+    }
+
+    /// Every other claimed person the caller shares a group with, regardless of
+    /// balance — a directory (`CHECKLIST.md` "Friends/contacts list... +
+    /// private 1:1 tabs"), unlike `peopleAcrossGroups`'s nonzero-only worklist.
+    public func friends(token: String) async throws -> FriendsResponse {
+        try await get("api/auth/friends", bearer: token)
+    }
+
+    /// Ensure the private 1:1 tab between the caller and a friend exists, and
+    /// return its `groupId` + access token — safe to call any number of times,
+    /// from either side (`CHECKLIST.md` "Friends/contacts list... + private
+    /// 1:1 tabs"). Store the result exactly like joining any other group.
+    public func ensureFriendTab(token: String, _ request: EnsureFriendTabRequest) async throws -> EnsureFriendTabResponse {
+        try await post("api/auth/friends/tab", body: request, bearer: token)
+    }
+
+    /// Delete the account: every claimed membership reverts to a placeholder and
+    /// the server-side index is wiped (§11). Groups and expenses are untouched.
+    public func deleteAccount(token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/account"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        _ = try await performNoContent(request)
+    }
+
+    /// Register this device for push (`FEATURE_BACKLOG.md` "Push
+    /// notifications") — call on every launch once the OS hands the app an
+    /// APNs device token. Idempotent; safe to call unconditionally.
+    public func registerDevice(deviceToken: String, platform: String = "ios", token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/devices"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(RegisterDeviceRequest(token: deviceToken, platform: platform))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        _ = try await performNoContent(request)
+    }
+
+    /// Forget a device token — call on sign-out so a shared/reset device
+    /// stops getting pushed for an identity no longer signed in on it.
+    public func unregisterDevice(deviceToken: String, token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/devices/\(deviceToken)"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        _ = try await performNoContent(request)
+    }
+
+    // MARK: - Image storage (CHECKLIST.md "Image storage backend (R2)" / "Profile photos")
+
+    /// Ask the server for a presigned URL to upload one image to R2. Follow with
+    /// `uploadImage(_:using:)` (or a plain `PUT` to `ticket.url` sending
+    /// `ticket.headers` verbatim + the bytes as the body). The object key is
+    /// derived server-side from `purpose` — the client never picks it.
+    public func presignMediaUpload(
+        _ purpose: MediaPurpose,
+        contentType: String,
+        contentLength: Int,
+        groupId: String? = nil,
+        expenseId: String? = nil,
+        token: String,
+        accessToken: String? = nil
+    ) async throws -> MediaUploadTicket {
+        try await post(
+            "api/media/presign",
+            body: MediaPresignRequest.upload(
+                purpose, contentType: contentType, contentLength: contentLength,
+                groupId: groupId, expenseId: expenseId
+            ),
+            bearer: token,
+            accessToken: accessToken
+        )
+    }
+
+    /// A presigned `GET` URL for an existing object — e.g. a `Member.avatarKey`
+    /// or a `GroupSummary.coverKey`. Valid ~5 minutes; fetch it, don't store it.
+    /// A group-scoped `key` needs `accessToken` unless the caller is a claimed
+    /// member of that group.
+    public func presignMediaView(key: String, token: String, accessToken: String? = nil) async throws -> MediaViewURL {
+        try await post(
+            "api/media/presign", body: MediaPresignRequest.view(key: key),
+            bearer: token, accessToken: accessToken
+        )
+    }
+
+    /// PUT the image bytes straight to R2 using a ticket from
+    /// `presignMediaUpload`. No Palance auth — the presigned URL is the
+    /// credential. Throws `PalanceClientError.invalidResponse` on a non-2xx
+    /// (a signature/size/type mismatch comes back 403).
+    public func uploadImage(_ data: Data, using ticket: MediaUploadTicket) async throws {
+        var request = URLRequest(url: ticket.url)
+        request.httpMethod = "PUT"
+        for (name, value) in ticket.headers {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
+        request.httpBody = data
+        let (_, statusCode) = try await transport.send(request)
+        guard (200..<300).contains(statusCode) else { throw PalanceClientError.invalidResponse }
+    }
+
+    /// This identity's own current profile-photo key, or `nil`. For rendering
+    /// "my photo" in Settings before any group is loaded.
+    public func myAvatarKey(token: String) async throws -> String? {
+        let response: MyAvatarResponse = try await get("api/auth/avatar", bearer: token)
+        return response.key
+    }
+
+    /// Commit the profile photo just uploaded to this identity's avatar key
+    /// (`CHECKLIST.md` "Profile photos") — the server verifies the object is in
+    /// the bucket, sets the "has photo" flag, and fans the key out to every
+    /// group the identity has claimed. Call after `uploadImage` succeeds.
+    public func setAvatar(token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/avatar"))
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try await performNoContent(request)
+    }
+
+    /// Remove the profile photo — clears `avatarKey` across every claimed group
+    /// and deletes the R2 object.
+    public func clearAvatar(token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/avatar"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try await performNoContent(request)
+    }
+
+    /// This identity's central display name, or `nil` if never set
+    /// (`CHECKLIST.md` R1). For rendering Settings' "Your Name" field on a
+    /// cold launch, and for `ClaimMemberView` to know whether to prompt for
+    /// one at all.
+    public func myDisplayName(token: String) async throws -> String? {
+        let response: MyProfileResponse = try await get("api/auth/profile", bearer: token)
+        return response.displayName
+    }
+
+    /// Set this identity's one central display name — every claimed group's
+    /// member row updates to match, and a plain group-settings rename no
+    /// longer applies to that member (`CHECKLIST.md` R1, R4). `204 No
+    /// Content` on success, so this goes through `performNoContent`
+    /// directly rather than the decoding `patch` helper.
+    public func updateProfile(displayName: String, token: String) async throws {
+        var request = URLRequest(url: url(for: "api/auth/profile"))
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(UpdateProfileRequest(displayName: displayName))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try await performNoContent(request)
+    }
+
+    /// This group's placeholder members — the "this is me" picker (§6). Needs
+    /// the access token too, same as any other group route — a not-yet-claimed
+    /// caller has no claimed-member fallback yet (`ACCESS_TOKEN_PLAN.md` Part 1).
+    public func claimableMembers(groupId: String, token: String, accessToken: String? = nil) async throws -> ClaimableMembersResponse {
+        try await get("api/groups/\(groupId)/claimable", bearer: token, accessToken: accessToken)
+    }
+
+    /// Link a placeholder member in this group to the signed-in identity (§6).
+    public func claimMember(groupId: String, memberId: String, token: String, accessToken: String? = nil) async throws -> ClaimMemberResponse {
+        try await send("POST", "api/groups/\(groupId)/members/\(memberId)/claim", bearer: token, accessToken: accessToken)
+    }
+
+    // MARK: - Request plumbing
+
+    private func get<Response: Decodable>(_ path: String, bearer: String? = nil, accessToken: String? = nil) async throws -> Response {
+        var request = URLRequest(url: url(for: path, accessToken: accessToken))
+        request.httpMethod = "GET"
+        setBearer(bearer, on: &request)
+        return try await perform(request)
+    }
+
+    private func post<Body: Encodable, Response: Decodable>(_ path: String, body: Body, bearer: String? = nil, accessToken: String? = nil) async throws -> Response {
+        var request = URLRequest(url: url(for: path, accessToken: accessToken))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(body)
+        setBearer(bearer, on: &request)
+        return try await perform(request)
+    }
+
+    private func put<Body: Encodable, Response: Decodable>(_ path: String, body: Body, bearer: String? = nil, accessToken: String? = nil) async throws -> Response {
+        try await bodyRequest("PUT", path, body: body, bearer: bearer, accessToken: accessToken)
+    }
+
+    private func patch<Body: Encodable, Response: Decodable>(_ path: String, body: Body, bearer: String? = nil, accessToken: String? = nil) async throws -> Response {
+        try await bodyRequest("PATCH", path, body: body, bearer: bearer, accessToken: accessToken)
+    }
+
+    private func bodyRequest<Body: Encodable, Response: Decodable>(_ method: String, _ path: String, body: Body, bearer: String?, accessToken: String?) async throws -> Response {
+        var request = URLRequest(url: url(for: path, accessToken: accessToken))
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(body)
+        setBearer(bearer, on: &request)
+        return try await perform(request)
+    }
+
+    /// A bodyless request (`POST /api/auth/refresh`, the claim routes) that still
+    /// expects a decodable response.
+    private func send<Response: Decodable>(_ method: String, _ path: String, bearer: String?, accessToken: String? = nil) async throws -> Response {
+        var request = URLRequest(url: url(for: path, accessToken: accessToken))
+        request.httpMethod = method
+        setBearer(bearer, on: &request)
+        return try await perform(request)
+    }
+
+    private func setBearer(_ token: String?, on request: inout URLRequest) {
+        guard let token else { return }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    /// - Parameters:
+    ///   - accessToken: appended as `?token=` (`ACCESS_TOKEN_PLAN.md`) — `nil`
+    ///     omits it entirely, for routes that don't need one.
+    ///   - extraQueryItems: any other query params a specific call needs (e.g.
+    ///     `deletedBy` on a delete, `FEATURE_BACKLOG.md`).
+    private func url(for path: String, accessToken: String? = nil, extraQueryItems: [URLQueryItem] = []) -> URL {
+        var items: [URLQueryItem] = []
+        if let accessToken { items.append(URLQueryItem(name: "token", value: accessToken)) }
+        items.append(contentsOf: extraQueryItems)
+        guard !items.isEmpty else {
+            return URL(string: path, relativeTo: baseURL)!
+        }
+        var components = URLComponents(string: path)!
+        components.queryItems = (components.queryItems ?? []) + items
+        return components.url(relativeTo: baseURL)!
+    }
+
+    private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {
+        let (data, statusCode) = try await transport.send(request)
+        try checkStatus(data, statusCode)
+        do {
+            return try decoder.decode(Response.self, from: data)
+        } catch {
+            throw PalanceClientError.decodingFailed(String(describing: error))
+        }
+    }
+
+    /// For `204 No Content` responses (account deletion) — success is the absence
+    /// of an error, there's nothing to decode.
+    private func performNoContent(_ request: URLRequest) async throws {
+        let (data, statusCode) = try await transport.send(request)
+        try checkStatus(data, statusCode)
+    }
+
+    private func checkStatus(_ data: Data, _ statusCode: Int) throws {
+        guard (200..<300).contains(statusCode) else {
+            if let envelope = try? decoder.decode(ErrorEnvelope.self, from: data) {
+                throw PalanceClientError.server(code: envelope.error.code, message: envelope.error.message)
+            }
+            if statusCode == 404 {
+                throw PalanceClientError.notFound
+            }
+            throw PalanceClientError.invalidResponse
+        }
+    }
+}

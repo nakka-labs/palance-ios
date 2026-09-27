@@ -1677,13 +1677,13 @@ describe("routing", () => {
     expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
     const body = await res.text();
     expect(body).toContain('<meta name="robots" content="noindex">');
-    expect(body).toContain("clantab://g/somegroup");
+    expect(body).toContain("palance://g/somegroup");
   });
 
-  it("carries ?token= through to the capability page's clantab:// link", async () => {
+  it("carries ?token= through to the capability page's palance:// link", async () => {
     const res = await SELF.fetch(`${BASE}/g/somegroup?token=tok123`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("clantab://g/somegroup?token=tok123");
+    expect(await res.text()).toContain("palance://g/somegroup?token=tok123");
   });
 
   it("serves a noindex read-only balances page at /g/:groupId/balances", async () => {
@@ -1709,7 +1709,7 @@ describe("routing", () => {
     expect(body).not.toContain("<script>");
     expect(body).toContain("Ben &lt;script&gt;");
     // No write surface leaked.
-    expect(body).not.toContain("clantab://");
+    expect(body).not.toContain("palance://");
   });
 
   it("the balances page needs a token when the group has one", async () => {
@@ -1752,7 +1752,7 @@ describe("routing", () => {
     const body = (await res.json()) as {
       applinks: { details: [{ appIDs: string[]; components: [{ "/": string }] }] };
     };
-    expect(body.applinks.details[0].appIDs).toEqual(["UK652GNPP7.com.clantab.app"]);
+    expect(body.applinks.details[0].appIDs).toEqual(["UK652GNPP7.com.palance.app"]);
     expect(body.applinks.details[0].components[0]["/"]).toBe("/g/*");
   });
 

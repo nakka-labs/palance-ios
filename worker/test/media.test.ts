@@ -80,7 +80,7 @@ describe("presignS3Url — AWS reference vector", () => {
       region: "auto" as const,
       host: "acc.r2.cloudflarestorage.com",
       method: "PUT" as const,
-      path: "/clantab-media/avatars/deadbeef",
+      path: "/palance-media/avatars/deadbeef",
       signedHeaders: { "content-type": "image/png", "content-length": "1234" },
       expiresSeconds: 300,
       now: 1_700_000_000_000,

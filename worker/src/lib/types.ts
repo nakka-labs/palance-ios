@@ -1,14 +1,14 @@
 // Domain types shared by the pure logic modules. These mirror
-// `ClanTabKit/Sources/ClanTabKit/Model/` and the wire contract in `DESIGN.md` §2.
+// `PalanceKit/Sources/PalanceKit/Model/` and the wire contract in `DESIGN.md` §2.
 // All money is integer minor units (paise/cents) — never floating point.
 
 export interface Member {
   id: string;
   displayName: string;
   /** UPI VPA (e.g. "name@bank"), user-supplied and never verified or
-   * processed by ClanTab — `FEATURE_BACKLOG.md` "UPI deep link on Settle
+   * processed by Palance — `FEATURE_BACKLOG.md` "UPI deep link on Settle
    * Up" builds a plain `upi://pay?...` link from it that hands off to the
-   * payer's UPI app; ClanTab itself never sees or moves money. Absent for a
+   * payer's UPI app; Palance itself never sees or moves money. Absent for a
    * member who hasn't set one. */
   upiVpa?: string;
   /** R2 object key for this member's profile photo (`CHECKLIST.md` "Profile
@@ -39,7 +39,7 @@ export interface ExpenseSplit {
 }
 
 /** One member's contribution toward an expense (`CHECKLIST.md` "Multiple
- * payers on one expense") — mirrors `ClanTabKit.ExpensePayment`. Every expense
+ * payers on one expense") — mirrors `PalanceKit.ExpensePayment`. Every expense
  * has at least one; all of an expense's `payers` sum exactly to its
  * `amountMinor`, the same integrity rule `splits` already follows. Same shape
  * as `ExpenseSplit`, kept a distinct type since a payment credits where a
@@ -50,7 +50,7 @@ export interface ExpensePayment {
 }
 
 /** One member's weight in a `shares` split (`CHECKLIST.md` "Split by shares") —
- * mirrors `ClanTabKit.ShareWeight`. Present only on a `shares` expense. A
+ * mirrors `PalanceKit.ShareWeight`. Present only on a `shares` expense. A
  * non-negative whole number; the weights are arbitrary ratios (4 : 2 : 1) and
  * needn't sum to anything. */
 export interface ShareWeight {
@@ -59,7 +59,7 @@ export interface ShareWeight {
 }
 
 /** One line of an itemized expense (`FEATURE_BACKLOG.md` "Itemized expense
- * entry") — mirrors `ClanTabKit.LineItem`. Present only on an `itemized`
+ * entry") — mirrors `PalanceKit.LineItem`. Present only on an `itemized`
  * expense. `participantIds` is never empty; the items together sum to the
  * expense `amountMinor`. */
 export interface LineItem {

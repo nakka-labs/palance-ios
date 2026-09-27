@@ -44,7 +44,7 @@ export function assertPositiveAmount(amountMinor: unknown): asserts amountMinor 
  * Splits must sum to exactly `amountMinor` — no tolerance. An `equal` split with a
  * remainder is expected to have had that remainder deterministically assigned
  * (client-side, to the payer) before the request is sent, so this is always an
- * exact check (`DESIGN.md` §6). Matches `ClanTabKit`'s `Validation.validateSplitsSum`:
+ * exact check (`DESIGN.md` §6). Matches `PalanceKit`'s `Validation.validateSplitsSum`:
  * only non-empty + exact sum are checked. Individual shares may be `0` (a member
  * included in the expense who owes nothing for it, e.g. `1` minor unit split three
  * ways → `1, 0, 0`); they must be non-negative integers but need not be positive.
@@ -71,7 +71,7 @@ export function assertSplitsSum(amountMinor: number, splits: ExpenseSplit[]): vo
  * Payers must sum to exactly `amountMinor` — the same integrity rule
  * `assertSplitsSum` already enforces, mirrored for the credit side of an
  * expense (`CHECKLIST.md` "Multiple payers on one expense"). Matches
- * `ClanTabKit`'s `Validation.validatePayersSum`.
+ * `PalanceKit`'s `Validation.validatePayersSum`.
  */
 export function assertPayersSum(amountMinor: number, payers: ExpensePayment[]): void {
   if (payers.length === 0) {
@@ -107,7 +107,7 @@ export function assertMembersExist(referencedIds: readonly string[], groupMember
  * `taxMinor`/`tipMinor` (`CHECKLIST.md` "Tax/tip proportional split on
  * itemized expenses" — both `0` by default, the original "no separate
  * tax/tip bucket, a shared surcharge is entered as its own line" behavior)
- * summing to exactly `amountMinor`. Mirrors `ClanTabKit.Validation.validateItems`.
+ * summing to exactly `amountMinor`. Mirrors `PalanceKit.Validation.validateItems`.
  * The resolved `splits` — which already distribute tax/tip proportionally by
  * each participant's own item subtotal, not evenly — are checked separately
  * by `assertSplitsSum`.
@@ -153,7 +153,7 @@ export function assertItemsValid(
  * At least one weight; every weight a non-negative integer, for a real group
  * member; and a positive total (something to divide by). The weights themselves
  * are arbitrary ratios and are not otherwise constrained. Mirrors
- * `ClanTabKit.Validation.validateShares`. The resolved `splits` are checked
+ * `PalanceKit.Validation.validateShares`. The resolved `splits` are checked
  * separately by `assertSplitsSum`.
  */
 export function assertSharesValid(

@@ -19,7 +19,7 @@ function b64urlJson(value: unknown): string {
   return b64url(new TextEncoder().encode(JSON.stringify(value)));
 }
 
-const AUDIENCE = "com.clantab.app";
+const AUDIENCE = "com.palance.app";
 
 interface FakeApple {
   jwk: AppleJwk;

@@ -1,4 +1,4 @@
-# App Store Connect — ClanTab metadata (draft)
+# App Store Connect — Palance metadata (draft)
 
 Source of truth, version-controlled. Pushed to App Store Connect (app
 `6807057518`, version 1.0) via the ASC API on 2026-09-09: **name, subtitle,
@@ -45,7 +45,7 @@ Remaining is just the `Owner` decision to submit (`CHECKLIST.md`
 "Submit for App Store review").
 
 **ASC API access** (for a future session): key `58887ALLXT` (Team key
-"clantab-upload", App Manager) at `~/.appstoreconnect/private_keys/`;
+"palance-upload", App Manager) at `~/.appstoreconnect/private_keys/`;
 issuer ID `6efff402-9490-4d58-ae2a-dcaba05b65e7`; app id `6807057518`.
 Neither is a secret (the `.p8` is); the App Privacy API surface stays
 non-functional so those labels are UI-only.
@@ -53,7 +53,7 @@ non-functional so those labels are UI-only.
 ---
 
 ## Name
-`ClanTab`
+`Palance`
 
 ## Subtitle (≤ 30 chars)
 `Split expenses, settle up fast` (30 chars)
@@ -89,7 +89,7 @@ multiple payers, Friends/private tabs, comments/reminders/CSV import — while
 keeping the original section structure and voice.
 
 ```
-ClanTab splits shared expenses for small groups — trips, flatmates, friend
+Palance splits shared expenses for small groups — trips, flatmates, friend
 circles — without the friction.
 
 QUICK SIGN-IN
@@ -98,7 +98,7 @@ nothing to verify. Then start a group, pick a display name, and share a link or
 a 6-character code.
 
 SETTLE UP IN THE FEWEST PAYMENTS
-ClanTab collapses everyone's tangled IOUs into the minimum number of
+Palance collapses everyone's tangled IOUs into the minimum number of
 "pay this person that much" transactions, so you settle up with one or two
 transfers instead of six.
 
@@ -117,7 +117,7 @@ See your net balance with anyone you share a group with, and start a private
 1:1 tab with them for money that has nothing to do with any group.
 
 TRUST-BASED, NOT A PAYMENT APP
-Marking a debt "paid" just records that you settled it outside the app. ClanTab
+Marking a debt "paid" just records that you settled it outside the app. Palance
 never touches your money and never asks for card or bank details.
 
 STAY ON THE SAME PAGE
@@ -142,10 +142,10 @@ common metadata-rejection trigger, Guideline 2.3.7 — and used the freed
 space for `expense tracker`.)
 
 ## Support URL
-`https://clantab.nakka.dev/support`
+`https://palance.nakka.dev/support`
 
-Live. Standalone page (what ClanTab is, a contact address, an FAQ, links to
-the privacy policy and repo), served from the `nakka-labs/clantab-website`
+Live. Standalone page (what Palance is, a contact address, an FAQ, links to
+the privacy policy and repo), served from the `nakka-labs/palance-website`
 repo via Cloudflare Pages. The page there is a hand-port of this repo's
 `docs/support.html` — that file stays the upstream source (`WEBSITE_PLAN.md`
 in the website repo). Use the extension-less path; `/support.html` 301s to it.
@@ -154,9 +154,9 @@ in the website repo). Use the extension-less path; `/support.html` 301s to it.
 _leave blank for now — or reuse the support URL_
 
 ## Privacy Policy URL (required)
-`https://clantab.nakka.dev/privacy`
+`https://palance.nakka.dev/privacy`
 
-Live. Served from the `nakka-labs/clantab-website` repo via Cloudflare Pages —
+Live. Served from the `nakka-labs/palance-website` repo via Cloudflare Pages —
 a hand-port of this repo's `docs/privacy-policy.md`, which stays the upstream
 source. Use the extension-less path; `/privacy.html` 301s to it.
 
@@ -164,7 +164,7 @@ source. Use the extension-less path; `/privacy.html` 301s to it.
 
 ## App Privacy (the questionnaire in App Store Connect)
 
-Keep this and `App/ClanTab/PrivacyInfo.xcprivacy` in sync. The manifest was
+Keep this and `App/Palance/PrivacyInfo.xcprivacy` in sync. The manifest was
 updated to match this table on 2026-09-08 (added Identifiers → User ID and
 Identifiers → Device ID).
 
@@ -194,11 +194,11 @@ Notes for the questionnaire:
 ## Review notes (App Review — this app is unusual; pre-empt the questions)
 ```
 SIGN-IN
-ClanTab requires Sign in with Apple or Sign in with Google before any group can
+Palance requires Sign in with Apple or Sign in with Google before any group can
 be created, joined, or viewed. No demo account is needed — Sign in with Apple
 works with your own reviewer Apple ID, and a brand-new account can reach 100% of
 the app immediately (there is no approval step, no waitlist, no paid tier).
-ClanTab requests NO name and NO email from Apple; it stores only the anonymous
+Palance requests NO name and NO email from Apple; it stores only the anonymous
 account identifier.
 
 GROUP ACCESS MODEL (unchanged, and intentional)
@@ -218,7 +218,7 @@ TO TEST:
 5. Either device: "Add Expense" — amount, description, choose equal or exact
    split, "Add Expense". Balances update for everyone.
 6. "Settle Up" shows the minimal set of payments. "Mark as Paid" records that a
-   payment happened OUTSIDE the app — ClanTab never processes money and never
+   payment happened OUTSIDE the app — Palance never processes money and never
    collects payment credentials.
 
 USER-GENERATED CONTENT (Guideline 1.2)
@@ -226,14 +226,14 @@ Group names, member names, and expense descriptions are shared between members.
 "Report a Problem" is available from any member row and from Group Settings;
 "Remove" (Group Settings) blocks a member from the group. Reports go to the
 operator and are reviewed within 24 hours; abusive content and users are
-removed. The EULA (https://clantab.nakka.dev/terms) states a zero-tolerance
+removed. The EULA (https://palance.nakka.dev/terms) states a zero-tolerance
 policy for objectionable content and abusive users. Published support contact:
 indra@nakka.dev.
 
 ACCOUNT DELETION (Guideline 5.1.1(v))
 Settings (gear icon on the start screen or Group Home) → "Delete Account".
 
-BACKEND: a Cloudflare Worker at https://clantab.nakka-labs.workers.dev.
+BACKEND: a Cloudflare Worker at https://palance.nakka-labs.workers.dev.
 Group-data routes use capability-link/token possession as described; auth routes
 verify an Apple or Google identity token and mint a session token.
 

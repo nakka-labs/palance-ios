@@ -1,8 +1,8 @@
-# ClanTab — Privacy Policy
+# Palance — Privacy Policy
 
 _Last updated: 2026-09-09_
 
-ClanTab is an expense-splitting app for small groups — trips, flatmates, friend
+Palance is an expense-splitting app for small groups — trips, flatmates, friend
 circles. Using it **requires signing in with Apple or Google**. This policy
 explains what the app collects, why, and your choices.
 
@@ -12,10 +12,10 @@ To create, join, or view a group you must sign in with **Sign in with Apple** or
 **Sign in with Google**. There is no email/password account and no phone
 verification.
 
-- **Sign in with Apple** — ClanTab requests *no* name and *no* email from Apple.
+- **Sign in with Apple** — Palance requests *no* name and *no* email from Apple.
   It receives only Apple's stable, app-specific account identifier for you.
 - **Sign in with Google** — Google's sign-in returns a token that includes your
-  email address and basic profile (name, profile-photo URL). ClanTab uses only
+  email address and basic profile (name, profile-photo URL). Palance uses only
   the anonymous account identifier in that token to recognise you on your next
   sign-in. **It does not store, log, or display your Google email address or
   name.**
@@ -26,9 +26,9 @@ privacy policies cover what they collect when you authenticate:
 - Apple: https://www.apple.com/legal/privacy/
 - Google: https://policies.google.com/privacy
 
-## What ClanTab collects
+## What Palance collects
 
-**Account data** (stored on ClanTab's backend, linked to you):
+**Account data** (stored on Palance's backend, linked to you):
 
 - **An opaque account identifier** — the "subject" identifier from Apple or
   Google described above. It is not your name, email, or phone number.
@@ -36,8 +36,8 @@ privacy policies cover what they collect when you authenticate:
 - **An index of your groups** — which groups you belong to, and your member id
   and chosen display name within each. Not the groups' contents.
 - **For Sign in with Apple only**: if Apple provides a refresh token during
-  sign-in, ClanTab stores it for one purpose — to tell Apple to revoke your
-  sign-in when you delete your ClanTab account.
+  sign-in, Palance stores it for one purpose — to tell Apple to revoke your
+  sign-in when you delete your Palance account.
 - **A device notification token**, if you allow notifications — your device's
   Apple Push Notification Service token, used only to send you notifications
   about activity in your groups. Removed when you sign out on that device.
@@ -49,24 +49,24 @@ privacy policies cover what they collect when you authenticate:
   paid, how each expense is split, and settlement ("I paid you back") entries.
 
 **Content reports:** if you report a group or a member (see "User-generated
-content" below), ClanTab stores the report — the reason you pick, any details
+content" below), Palance stores the report — the reason you pick, any details
 you type, which group and member it concerns, and your account identifier if you
 are signed in — so it can be reviewed.
 
-## What ClanTab does **not** collect
+## What Palance does **not** collect
 
 - Email addresses, phone numbers, or real names — beyond a display name you type
   yourself
-- Passwords or payment credentials — ClanTab never processes money
+- Passwords or payment credentials — Palance never processes money
 - Location, contacts, photos, or advertising identifiers
 - Any analytics, advertising, or tracking data. There are no third-party
-  analytics or advertising SDKs in the app, and ClanTab does not track you
+  analytics or advertising SDKs in the app, and Palance does not track you
   across other apps or websites.
 
 ## User-generated content
 
 Group names, member display names, expense descriptions, and report details are
-written by users and shared with the other members of a group. ClanTab has a
+written by users and shared with the other members of a group. Palance has a
 zero-tolerance approach to abusive or objectionable content:
 
 - **Report** — from a member's row or from Group Settings, you can report a
@@ -91,9 +91,9 @@ group's link or code publicly.
   iOS Keychain), your chosen display name, the last group you opened, your
   notification token, and local app settings. Removing the app deletes this.
 - **On the backend**: account and group records are stored in Cloudflare
-  Durable Objects and Workers KV (Cloudflare, Inc. is ClanTab's infrastructure
+  Durable Objects and Workers KV (Cloudflare, Inc. is Palance's infrastructure
   provider). All data is transmitted over HTTPS to
-  `clantab.nakka-labs.workers.dev`.
+  `palance.nakka-labs.workers.dev`.
 
 ## Data retention and deletion
 
@@ -108,7 +108,7 @@ group's link or code publicly.
 
 ## Children
 
-ClanTab is not directed at children under 13 and does not knowingly collect data
+Palance is not directed at children under 13 and does not knowingly collect data
 from them.
 
 ## Third parties
@@ -119,7 +119,7 @@ from them.
   in").
 - **Apple Push Notification service** — delivers notifications if you enable
   them.
-- ClanTab does not sell or share your data with anyone else.
+- Palance does not sell or share your data with anyone else.
 
 ## Changes
 

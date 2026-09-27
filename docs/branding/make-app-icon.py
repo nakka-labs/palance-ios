@@ -1,4 +1,4 @@
-"""Generate ClanTab's app icon (DESIGN_BIBLE.md §3): the bold geometric "=" mark,
+"""Generate Palance's app icon (DESIGN_BIBLE.md §3): the bold geometric "=" mark,
 now on a two-stop gradient in the app's own hue (250) at oklch 60%->40% lightness,
 top to bottom -- the same gradient as the in-app hero moments. Flat, no bevel, no
 shadow, full-bleed, opaque, 1024 px.
@@ -61,7 +61,7 @@ mask = mask.resize((N, N), Image.LANCZOS)
 mark = Image.new("RGB", (N, N), (250, 251, 253))  # a hair cool of pure white
 img = Image.composite(mark, img, mask)
 
-out = "App/ClanTab/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+out = "App/Palance/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
 img.save(out)
 print("wrote", out, img.size, img.mode)
 print("top stop  #%02X%02X%02X" % gp[0, 0])

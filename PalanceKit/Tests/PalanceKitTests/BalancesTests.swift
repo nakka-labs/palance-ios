@@ -1,0 +1,233 @@
+import Testing
+import Foundation
+@testable import PalanceKit
+
+@Suite("Balances")
+struct BalancesTests {
+    let alice = Member(id: "alice", displayName: "Alice", isClaimed: false)
+    let bob = Member(id: "bob", displayName: "Bob", isClaimed: false)
+    let carol = Member(id: "carol", displayName: "Carol", isClaimed: false)
+
+    private func expense(
+        id: String = "e1",
+        payer: String,
+        amount: Int64,
+        currency: String = "USD",
+        splits: [ExpenseSplit]
+    ) -> Expense {
+        Expense(
+            id: id, payerId: payer, amountMinor: amount, currency: currency,
+            description: "x", date: Date(), splitType: .exact, splits: splits
+        )
+    }
+
+    private func settlement(
+        id: String = "s1", from: String, to: String, amount: Int64, currency: String = "USD"
+    ) -> Settlement {
+        Settlement(id: id, fromId: from, toId: to, amountMinor: amount, currency: currency, date: Date())
+    }
+
+    private func byId(_ balances: [Balance]) -> [String: Int64] {
+        Dictionary(balances.map { ($0.memberId, $0.netMinor) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    @Test("Single payer covering an equal split owes nothing, is owed by everyone else")
+    func testSinglePayerEqualSplit() {
+        let e = expense(payer: alice.id, amount: 300, splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 100),
+            ExpenseSplit(memberId: bob.id, amountMinor: 100),
+            ExpenseSplit(memberId: carol.id, amountMinor: 100),
+        ])
+        let balances = Balances.compute(members: [alice, bob, carol], expenses: [e], settlements: [])
+
+        #expect(balances.allSatisfy { $0.currency == "USD" })
+        #expect(byId(balances)["alice"] == 200)
+        #expect(byId(balances)["bob"] == -100)
+        #expect(byId(balances)["carol"] == -100)
+        #expect(balances.reduce(0) { $0 + $1.netMinor } == 0)
+    }
+
+    @Test("Multiple payers are each credited their own contribution, not the whole amount")
+    func testMultiplePayersCreditedSeparately() {
+        // Alice and Bob split a 300 bill 200/100, evenly among all three.
+        let e = Expense(
+            id: "e1",
+            payers: [ExpensePayment(memberId: alice.id, amountMinor: 200), ExpensePayment(memberId: bob.id, amountMinor: 100)],
+            amountMinor: 300, currency: "USD", description: "x", date: Date(), splitType: .exact,
+            splits: [
+                ExpenseSplit(memberId: alice.id, amountMinor: 100),
+                ExpenseSplit(memberId: bob.id, amountMinor: 100),
+                ExpenseSplit(memberId: carol.id, amountMinor: 100),
+            ]
+        )
+        let balances = Balances.compute(members: [alice, bob, carol], expenses: [e], settlements: [])
+
+        #expect(byId(balances)["alice"] == 100) // paid 200, owes 100
+        #expect(byId(balances)["bob"] == nil) // paid 100, owes 100 — nets to zero, drops out
+        #expect(byId(balances)["carol"] == -100)
+        #expect(balances.reduce(0) { $0 + $1.netMinor } == 0)
+    }
+
+    @Test("A settlement moves balance from the payer toward the recipient")
+    func testSettlementMovesBalance() {
+        let balances = Balances.compute(
+            members: [alice, bob], expenses: [],
+            settlements: [settlement(from: bob.id, to: alice.id, amount: 100)]
+        )
+        #expect(byId(balances)["bob"] == 100)
+        #expect(byId(balances)["alice"] == -100)
+    }
+
+    @Test("Expenses fully offset by settlements drop out (only nonzero balances are returned)")
+    func testZeroBalanceAlreadySettled() {
+        let e = expense(payer: alice.id, amount: 200, splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 100),
+            ExpenseSplit(memberId: bob.id, amountMinor: 100),
+        ])
+        let balances = Balances.compute(
+            members: [alice, bob], expenses: [e],
+            settlements: [settlement(from: bob.id, to: alice.id, amount: 100)]
+        )
+        #expect(balances.isEmpty)
+    }
+
+    @Test("Empty event history yields no balances at all")
+    func testEmptyHistory() {
+        #expect(Balances.compute(members: [alice, bob, carol], expenses: [], settlements: []).isEmpty)
+    }
+
+    @Test("Computing balances twice from the same input is idempotent")
+    func testIdempotency() {
+        let e = expense(payer: alice.id, amount: 300, splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 100),
+            ExpenseSplit(memberId: bob.id, amountMinor: 100),
+            ExpenseSplit(memberId: carol.id, amountMinor: 100),
+        ])
+        let members = [alice, bob, carol]
+        #expect(
+            Balances.compute(members: members, expenses: [e], settlements: [])
+                == Balances.compute(members: members, expenses: [e], settlements: [])
+        )
+    }
+
+    @Test("Within a currency, nonzero balances follow members order")
+    func testResultOrderMatchesMembers() {
+        let e = expense(payer: carol.id, amount: 300, splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 100),
+            ExpenseSplit(memberId: bob.id, amountMinor: 100),
+            ExpenseSplit(memberId: carol.id, amountMinor: 100),
+        ])
+        let balances = Balances.compute(members: [carol, alice, bob], expenses: [e], settlements: [])
+        #expect(balances.map(\.memberId) == ["carol", "alice", "bob"])
+    }
+
+    @Test("Two currencies are kept in separate buckets, each summing to zero")
+    func testMultiCurrency() {
+        let usd = expense(id: "e1", payer: alice.id, amount: 200, currency: "USD", splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 100),
+            ExpenseSplit(memberId: bob.id, amountMinor: 100),
+        ])
+        let eur = expense(id: "e2", payer: bob.id, amount: 500, currency: "EUR", splits: [
+            ExpenseSplit(memberId: alice.id, amountMinor: 250),
+            ExpenseSplit(memberId: bob.id, amountMinor: 250),
+        ])
+        let balances = Balances.compute(members: [alice, bob], expenses: [usd, eur], settlements: [])
+
+        // USD bucket first (first-appearance order), then EUR.
+        #expect(balances.map { "\($0.currency):\($0.memberId)=\($0.netMinor)" }
+            == ["USD:alice=100", "USD:bob=-100", "EUR:alice=-250", "EUR:bob=250"])
+
+        for currency in ["USD", "EUR"] {
+            let sum = balances.filter { $0.currency == currency }.reduce(Int64(0)) { $0 + $1.netMinor }
+            #expect(sum == 0)
+        }
+    }
+
+    // MARK: - headline (FEATURE_BACKLOG.md "Home-screen widget")
+
+    @Test("headline picks the largest-magnitude nonzero balance")
+    func testHeadlinePicksLargestMagnitude() {
+        let balances = [
+            Balance(memberId: "m1", currency: "INR", netMinor: 500),
+            Balance(memberId: "m1", currency: "USD", netMinor: -2000),
+        ]
+        #expect(Balances.headline(balances) == Balance(memberId: "m1", currency: "USD", netMinor: -2000))
+    }
+
+    @Test("headline is nil for an empty or all-zero list")
+    func testHeadlineNilWhenSettled() {
+        #expect(Balances.headline([]) == nil)
+        #expect(Balances.headline([Balance(memberId: "m1", currency: "INR", netMinor: 0)]) == nil)
+    }
+
+    @Test("headline ignores zero entries alongside a real one")
+    func testHeadlineIgnoresZeroEntries() {
+        let balances = [
+            Balance(memberId: "m1", currency: "INR", netMinor: 0),
+            Balance(memberId: "m1", currency: "USD", netMinor: 100),
+        ]
+        #expect(Balances.headline(balances) == Balance(memberId: "m1", currency: "USD", netMinor: 100))
+    }
+
+    // MARK: - applyingCarriedBalance (CHECKLIST.md "iOS: push handler writes the carried balance")
+
+    @Test("Updates the matching currency bucket, leaves other currencies alone")
+    func testApplyingCarriedBalanceUpdatesOneBucket() {
+        let cached = [
+            Balance(memberId: "me", currency: "INR", netMinor: -500),
+            Balance(memberId: "me", currency: "USD", netMinor: 200),
+        ]
+        let updated = Balances.applyingCarriedBalance(to: cached, memberId: "me", currency: "INR", netMinor: -1500)
+        // The untouched currency keeps its place; the updated bucket moves to the end.
+        #expect(updated == [
+            Balance(memberId: "me", currency: "USD", netMinor: 200),
+            Balance(memberId: "me", currency: "INR", netMinor: -1500),
+        ])
+    }
+
+    @Test("Inserts a bucket for a currency not yet cached")
+    func testApplyingCarriedBalanceInsertsNewCurrency() {
+        let updated = Balances.applyingCarriedBalance(to: [], memberId: "me", currency: "EUR", netMinor: 4200)
+        #expect(updated == [Balance(memberId: "me", currency: "EUR", netMinor: 4200)])
+    }
+
+    @Test("A zero net drops the bucket — a settled currency isn't stored")
+    func testApplyingCarriedBalanceZeroDropsBucket() {
+        let cached = [
+            Balance(memberId: "me", currency: "INR", netMinor: -500),
+            Balance(memberId: "me", currency: "USD", netMinor: 200),
+        ]
+        let updated = Balances.applyingCarriedBalance(to: cached, memberId: "me", currency: "INR", netMinor: 0)
+        #expect(updated == [Balance(memberId: "me", currency: "USD", netMinor: 200)])
+    }
+
+    @Test("A zero net for an uncached currency is a no-op")
+    func testApplyingCarriedBalanceZeroForUncachedIsNoop() {
+        #expect(Balances.applyingCarriedBalance(to: [], memberId: "me", currency: "GBP", netMinor: 0) == [])
+    }
+
+    // MARK: - dominantCurrency (CHECKLIST.md R10, shared by BalanceBubbleView/RecapCard)
+
+    @Test("picks the currency with the largest-magnitude single balance")
+    func testDominantCurrencyPicksLargestMagnitude() {
+        let balances = [
+            Balance(memberId: "alice", currency: "USD", netMinor: 200),
+            Balance(memberId: "bob", currency: "INR", netMinor: -5000),
+        ]
+        #expect(Balances.dominantCurrency(balances) == "INR")
+    }
+
+    @Test("magnitude, not sign, decides it")
+    func testDominantCurrencyIgnoresSign() {
+        let balances = [
+            Balance(memberId: "alice", currency: "USD", netMinor: -9000),
+            Balance(memberId: "bob", currency: "INR", netMinor: 100),
+        ]
+        #expect(Balances.dominantCurrency(balances) == "USD")
+    }
+
+    @Test("empty balances yield an empty string, not a crash")
+    func testDominantCurrencyEmpty() {
+        #expect(Balances.dominantCurrency([]) == "")
+    }
+}

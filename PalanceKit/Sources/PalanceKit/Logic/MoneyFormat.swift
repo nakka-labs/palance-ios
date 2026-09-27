@@ -1,0 +1,121 @@
+import Foundation
+
+/// Formats integer minor units for display — the one place money is converted
+/// out of minor units, per `AGENTS.md`'s "convert at the UI formatting edge" rule.
+/// Pure Foundation, no UIKit/SwiftUI — shared by the App target and the
+/// `PalanceWidget` extension (`FEATURE_BACKLOG.md` "Home-screen widget"),
+/// which otherwise couldn't see an App-target-only file.
+///
+/// Assumes 2 decimal minor units, true for every currency in the v1 picker
+/// (INR/USD/EUR/GBP/AUD/CAD) but not universally (e.g. JPY has 0) — worth
+/// revisiting if the currency list grows.
+public enum MoneyFormat {
+    public static func string(minorUnits: Int64, currency: String) -> String {
+        let major = Double(minorUnits) / 100.0
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        // One consistent figure style across the portfolio (`DESIGN_BIBLE.md`
+        // §1), independent of the device locale: comma every three digits,
+        // period before the fraction — so a lakh reads "₹100,000", not the
+        // "₹1,00,000" an Indian device would otherwise produce. The currency
+        // *symbol* and its placement stay locale-native.
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSize = 3
+        formatter.secondaryGroupingSize = 3
+        formatter.currencyGroupingSeparator = ","
+        formatter.currencyDecimalSeparator = "."
+        // A round amount drops the pointless ".00" — "₹1,200", not
+        // "₹1,200.00" (`CHECKLIST.md` "Currency display"). A non-round amount
+        // still shows both places ("₹1,200.50", never "₹1,200.5"), which is
+        // the `.currency` style's default.
+        if isRoundAmount(minorUnits: minorUnits) {
+            formatter.minimumFractionDigits = 0
+            formatter.maximumFractionDigits = 0
+        }
+        return formatter.string(from: NSNumber(value: major)) ?? "\(currency) \(major)"
+    }
+
+    /// Whether an amount has no paise/cents — the amounts we render without a
+    /// trailing ".00". Negative round amounts count too (`-500 % 100 == 0`).
+    public static func isRoundAmount(minorUnits: Int64) -> Bool {
+        minorUnits % 100 == 0
+    }
+
+    /// A plain, editable decimal string (`"12.34"`, `"12.00"`, `"0.05"`) — no
+    /// currency symbol or grouping — for pre-filling a text field when editing.
+    /// Integer math, so it round-trips through `minorUnits(from:)` exactly.
+    public static func plainString(minorUnits: Int64) -> String {
+        let sign = minorUnits < 0 ? "-" : ""
+        let magnitude = abs(minorUnits)
+        return "\(sign)\(magnitude / 100).\(String(format: "%02d", magnitude % 100))"
+    }
+
+    /// Parses a decimal amount typed by the user (e.g. "12", "12.5", "12.34")
+    /// into integer minor units — via string/integer math, not `Double`, so a
+    /// typed amount never picks up floating-point drift on the way in. Returns
+    /// `nil` for anything that isn't a plain non-negative number with at most
+    /// 2 fractional digits.
+    public static func minorUnits(from input: String) -> Int64? {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        let parts = trimmed.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 1 || parts.count == 2 else { return nil }
+
+        let wholeDigits = parts[0].isEmpty ? "0" : String(parts[0])
+        guard wholeDigits.allSatisfy(\.isNumber), let wholePart = Int64(wholeDigits) else { return nil }
+
+        var fractionalMinor: Int64 = 0
+        if parts.count == 2 {
+            var fractionalDigits = String(parts[1])
+            guard fractionalDigits.count <= 2, fractionalDigits.allSatisfy(\.isNumber) else { return nil }
+            while fractionalDigits.count < 2 { fractionalDigits.append("0") }
+            guard let value = Int64(fractionalDigits) else { return nil }
+            fractionalMinor = value
+        }
+
+        return wholePart * 100 + fractionalMinor
+    }
+
+    /// Evaluates a small `+`/`-` expression typed into the amount field
+    /// (`CHECKLIST.md` "Inline calculator on the amount field") — `"12 + 8.50"`,
+    /// `"20-3"`, `"5+5+5"` — into integer minor units, left to right, all in
+    /// minor-unit integer math (no `Double`, no floating-point drift). Each
+    /// operand goes through `minorUnits(from:)`, so the same "plain non-negative
+    /// number, ≤ 2 fraction digits" rule applies per term.
+    ///
+    /// `nil` for anything that doesn't fully resolve: an empty or trailing
+    /// operand (`"12 +"` while still typing), a non-numeric term, or a result
+    /// that would be negative (`"3 - 10"`) — the amount field can't hold a
+    /// negative. A bare number with no operator evaluates identically to
+    /// `minorUnits(from:)`.
+    public static func evaluate(_ input: String) -> Int64? {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        var operands: [String] = []
+        var signs: [Int64] = []
+        var current = ""
+        var pendingSign: Int64 = 1
+        for ch in trimmed {
+            if ch == "+" || ch == "-" {
+                operands.append(current)
+                signs.append(pendingSign)
+                current = ""
+                pendingSign = ch == "-" ? -1 : 1
+            } else {
+                current.append(ch)
+            }
+        }
+        operands.append(current)
+        signs.append(pendingSign)
+
+        var totalMinor: Int64 = 0
+        for (operand, sign) in zip(operands, signs) {
+            guard let minor = minorUnits(from: operand) else { return nil }
+            totalMinor += sign * minor
+        }
+        return totalMinor >= 0 ? totalMinor : nil
+    }
+}

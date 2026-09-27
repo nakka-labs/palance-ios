@@ -16,7 +16,7 @@ SESSION_SIGNING_KEY=dev-only-not-a-secret
 # APNS_KEY_ID=
 # APNS_TEAM_ID=
 # APNS_PRIVATE_KEY=
-# APNS_TOPIC=com.clantab.app
+# APNS_TOPIC=com.palance.app
 # APNS_ENVIRONMENT=sandbox
 
 # GET /api/admin/reports (SHIP_PLAN.md Track 3 §7, Apple Guideline 1.2) —
@@ -38,7 +38,7 @@ SESSION_SIGNING_KEY=dev-only-not-a-secret
 #   wrangler secret put R2_ACCOUNT_ID
 #   wrangler secret put R2_ACCESS_KEY_ID
 #   wrangler secret put R2_SECRET_ACCESS_KEY
-# R2_BUCKET=clantab-media-preview
+# R2_BUCKET=palance-media-preview
 # R2_ACCOUNT_ID=
 # R2_ACCESS_KEY_ID=
 # R2_SECRET_ACCESS_KEY=

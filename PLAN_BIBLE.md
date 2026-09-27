@@ -5,7 +5,7 @@
 > to build (`DESIGN_BIBLE.md`, how it looks) or how execution/agent-handoff
 > works once code is being written (`DEV_PROCESS.md`, its counterpart for
 > that phase — read that one too before running a CLI session). App-agnostic;
-> lives in `clantab-ios` for now since it's the only connected repo, same
+> lives in `palance-ios` for now since it's the only connected repo, same
 > reasoning as the other two Bibles — point future repos at this file,
 > don't rewrite it or copy it per-repo (see `DEV_PROCESS.md`'s header for
 > why copies drift).

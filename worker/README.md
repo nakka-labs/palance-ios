@@ -1,9 +1,9 @@
-# ClanTab Worker
+# Palance Worker
 
 The Cloudflare Worker + Durable Objects backend. Contract: `../DESIGN.md` §2-§8
 (group routes) and §13 (accounts / auth). Status: `../CHECKLIST.md`.
 
-**Deployed:** `https://clantab.nakka-labs.workers.dev` — accounts routes live
+**Deployed:** `https://palance.nakka-labs.workers.dev` — accounts routes live
 since 2026-09-04 (`SESSION_SIGNING_KEY` is a real secret).
 
 ## Layout
@@ -15,8 +15,8 @@ src/
 ├── group-do.ts     GroupDO     — one group's SQLite ledger; server-computed balances;
 │                                 claim / unclaim (schema v5, members.identity_sub)
 ├── user-do.ts      UserDO      — one per signed-in identity (provider:sub); thin self-healing group index
-├── types.ts        wire DTOs (mirror ClanTabKit's ClanTabWireTypes.swift)
-└── lib/            balances / simplify / validation (ports of ClanTabKit Logic/),
+├── types.ts        wire DTOs (mirror PalanceKit's PalanceWireTypes.swift)
+└── lib/            balances / simplify / validation (ports of PalanceKit Logic/),
                     apple-auth (Apple JWKS verify), apple-oauth (code exchange +
                     token revocation), session (HS256 session JWT), base64url,
                     ids, join-codes (joinCode ↔ groupId in Workers KV, rate-limit
@@ -40,7 +40,7 @@ test/               logic + validation (Node) · join-codes/group/routes/user/au
 
 - **Zero runtime dependencies.** Hand-rolled router; `crypto.getRandomValues` for ids;
   Apple-token and session JWTs verified with Web Crypto (`crypto.subtle`), no library.
-- **The balance / simplify logic must stay identical to `ClanTabKit`** — both run the
+- **The balance / simplify logic must stay identical to `PalanceKit`** — both run the
   shared vectors in `../test-fixtures/balances/`.
 - **DO methods return `Result` / discriminated unions for expected failures**, never
   `throw` — a thrown error loses its prototype across the RPC boundary.

@@ -2,9 +2,9 @@ import type { Balance, Expense, Member, Settlement } from "./types.ts";
 
 /**
  * Pure derivation of member balances from a group's full event history,
- * **partitioned by currency** — a port of `ClanTabKit`'s `Balances.compute`, kept
+ * **partitioned by currency** — a port of `PalanceKit`'s `Balances.compute`, kept
  * byte-identical by the shared golden fixtures in `test-fixtures/balances/` (run
- * by both this suite and `ClanTabKitTests`).
+ * by both this suite and `PalanceKitTests`).
  *
  * Within each currency bucket: each of an expense's `payers` is credited their
  * own contribution (`CHECKLIST.md` "Multiple payers on one expense") and

@@ -31,7 +31,7 @@ async function fakeKey(): Promise<{ config: SiwaConfig; publicKey: CryptoKey }> 
   for (const b of pkcs8) bin += String.fromCharCode(b);
   const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(bin).replace(/(.{64})/g, "$1\n")}\n-----END PRIVATE KEY-----`;
   return {
-    config: { servicesId: "com.clantab.app.signin", teamId: "TEAM123456", keyId: "KEYID98765", privateKeyPem: pem },
+    config: { servicesId: "com.palance.app.signin", teamId: "TEAM123456", keyId: "KEYID98765", privateKeyPem: pem },
     publicKey: pair.publicKey,
   };
 }
@@ -57,7 +57,7 @@ describe("mintClientSecret", () => {
     const payload = b64urlToJson<{ iss: string; sub: string; aud: string; iat: number; exp: number }>(p);
     expect(payload).toMatchObject({
       iss: "TEAM123456",
-      sub: "com.clantab.app.signin",
+      sub: "com.palance.app.signin",
       aud: "https://appleid.apple.com",
       iat: now / 1000,
     });
@@ -88,7 +88,7 @@ describe("exchangeAuthorizationCode", () => {
     expect(seen?.url).toBe("https://appleid.apple.com/auth/token");
     expect(seen?.body.get("grant_type")).toBe("authorization_code");
     expect(seen?.body.get("code")).toBe("code-123");
-    expect(seen?.body.get("client_id")).toBe("com.clantab.app.signin");
+    expect(seen?.body.get("client_id")).toBe("com.palance.app.signin");
     expect(seen?.body.get("client_secret")).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
   });
 
@@ -121,7 +121,7 @@ describe("revokeToken", () => {
 
     expect(body?.get("token")).toBe("rt-abc");
     expect(body?.get("token_type_hint")).toBe("refresh_token");
-    expect(body?.get("client_id")).toBe("com.clantab.app.signin");
+    expect(body?.get("client_id")).toBe("com.palance.app.signin");
   });
 
   it("throws on a non-2xx", async () => {

@@ -1,4 +1,4 @@
-"""ClanTab's one custom empty-state glyph (DESIGN_BIBLE.md §4's single sanctioned
+"""Palance's one custom empty-state glyph (DESIGN_BIBLE.md §4's single sanctioned
 exception to SF-Symbols-only): a flat mark reused across every genuine zero-state
 -- "no groups yet", "no expenses yet", "nothing to chart yet".
 
@@ -54,6 +54,6 @@ def build(px):
 for scale in (1, 2, 3):
     px = 128 * scale
     suffix = "" if scale == 1 else f"@{scale}x"
-    out = f"App/ClanTab/Assets.xcassets/EmptyStateGlyph.imageset/empty-state{suffix}.png"
+    out = f"App/Palance/Assets.xcassets/EmptyStateGlyph.imageset/empty-state{suffix}.png"
     build(px).save(out)
     print("wrote", out)

@@ -672,15 +672,15 @@ async function handleDeleteComment(request: Request, env: Env, params: Params): 
 /** The app's Apple-assigned application identifier — `<TeamID>.<bundleId>`
  * (`CHECKLIST.md` "Custom domain + Universal Links"). Same team as the
  * `APNS_*` / `SIWA_*` secrets. Used only in the AASA below. */
-const APPLE_APP_ID = "UK652GNPP7.com.clantab.app";
+const APPLE_APP_ID = "UK652GNPP7.com.palance.app";
 
 /**
  * `apple-app-site-association` for Universal Links (`CHECKLIST.md` "Custom
  * domain + Universal Links", `DESIGN.md` §1/§8). Scoped to `/g/*` so a group
  * invite link opens the app directly; nothing else on the host is claimed.
  * Must be `application/json`, HTTP 200, no redirect — served here for the
- * workers.dev host; the production `clantab.nakka.dev` copy lives in the
- * `nakka-labs/clantab-website` Pages repo (same JSON).
+ * workers.dev host; the production `palance.nakka.dev` copy lives in the
+ * `nakka-labs/palance-website` Pages repo (same JSON).
  */
 function handleAppleAppSiteAssociation(): Promise<Response> {
   const body = {
@@ -688,7 +688,7 @@ function handleAppleAppSiteAssociation(): Promise<Response> {
       details: [
         {
           appIDs: [APPLE_APP_ID],
-          components: [{ "/": "/g/*", comment: "Group invite links open directly in the ClanTab app" }],
+          components: [{ "/": "/g/*", comment: "Group invite links open directly in the Palance app" }],
         },
       ],
     },
@@ -705,7 +705,7 @@ function handleAppleAppSiteAssociation(): Promise<Response> {
  * The human-facing capability link (`DESIGN.md` §1/§8). With Universal Links
  * live (see `handleAppleAppSiteAssociation`), a device with the app installed
  * opens it directly and never sees this — it's the fallback for no app,
- * desktop, or a long-press "open in browser". The `clantab://` button carries
+ * desktop, or a long-press "open in browser". The `palance://` button carries
  * the `?token=` through so the manual path still reaches the group.
  * Deliberately reveals nothing about the group.
  */
@@ -713,15 +713,15 @@ function handleCapabilityPage(request: Request, _env: Env, params: Params): Prom
   const groupId = params.groupId ?? "";
   const token = new URL(request.url).searchParams.get("token");
   const deepLink = token
-    ? `clantab://g/${encodeURIComponent(groupId)}?token=${encodeURIComponent(token)}`
-    : `clantab://g/${encodeURIComponent(groupId)}`;
+    ? `palance://g/${encodeURIComponent(groupId)}?token=${encodeURIComponent(token)}`
+    : `palance://g/${encodeURIComponent(groupId)}`;
   const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Open in ClanTab</title>
+<title>Open in Palance</title>
 <style>
   body { font: 16px/1.5 -apple-system, system-ui, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; text-align: center; color: #1c1c1e; background: #f2f2f7; }
   main { padding: 2rem; max-width: 22rem; }
@@ -732,9 +732,9 @@ function handleCapabilityPage(request: Request, _env: Env, params: Params): Prom
 </head>
 <body>
 <main>
-  <h1>ClanTab 🧾</h1>
-  <p>You've been invited to a shared expense group. Open this link on a device with the ClanTab app installed.</p>
-  <a class="btn" href="${deepLink}">Open in ClanTab</a>
+  <h1>Palance 🧾</h1>
+  <p>You've been invited to a shared expense group. Open this link on a device with the Palance app installed.</p>
+  <a class="btn" href="${deepLink}">Open in Palance</a>
 </main>
 </body>
 </html>`;
@@ -748,7 +748,7 @@ function handleCapabilityPage(request: Request, _env: Env, params: Params): Prom
 
 function handleRoot(): Promise<Response> {
   return Promise.resolve(
-    new Response("ClanTab API. See https://github.com/nakka-labs/clantab-ios\n", {
+    new Response("Palance API. See https://github.com/nakka-labs/palance-ios\n", {
       status: 200,
       headers: { "content-type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex" },
     }),
@@ -851,7 +851,7 @@ function htmlPage(status: number, title: string, bodyHtml: string): Response {
 <body>
 <main>
 ${bodyHtml}
-<footer>Made with ClanTab</footer>
+<footer>Made with Palance</footer>
 </main>
 </body>
 </html>`;
@@ -1346,7 +1346,7 @@ async function handleEnsureFriendTab(request: Request, env: Env): Promise<Respon
 /** A stable, non-reversible client-facing id for a person — never expose the
  * underlying identity string. */
 async function opaquePersonId(sub: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`clantab-person:${sub}`));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`palance-person:${sub}`));
   return b64urlEncode(new Uint8Array(digest).slice(0, 9));
 }
 

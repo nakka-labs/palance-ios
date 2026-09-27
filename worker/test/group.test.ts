@@ -207,7 +207,7 @@ describe("GroupDO", () => {
       const { member: ben } = await g.addMember("Ben");
 
       // Ana ordered 750, Ben 250 — a 3:1 item split. 60 tax + 40 tip (100
-      // total), split 3:1 by the client → Ana +75, Ben +25 (`ClanTabKit`'s
+      // total), split 3:1 by the client → Ana +75, Ben +25 (`PalanceKit`'s
       // `Validation.itemizedSplit` is what actually computes this; the
       // server only checks the items+tax+tip sum and that `splits` agrees).
       const r = await g.addExpense({

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { newExpensePayload, notifyGroup, notifyMember, reminderPayload, settlementPayload } from "../src/lib/notify.ts";
 import type { ApnsConfig, ApnsOutcome } from "../src/lib/apns.ts";
 
-const apnsEnv = { APNS_KEY_ID: "k", APNS_TEAM_ID: "t", APNS_PRIVATE_KEY: "p", APNS_TOPIC: "com.clantab.app" };
+const apnsEnv = { APNS_KEY_ID: "k", APNS_TEAM_ID: "t", APNS_PRIVATE_KEY: "p", APNS_TOPIC: "com.palance.app" };
 
 describe("notifyGroup", () => {
   it("is a no-op when APNs isn't configured", async () => {

@@ -1,4 +1,4 @@
-# TestFlight on-device end-to-end pass — ClanTab 1.0 (15)
+# TestFlight on-device end-to-end pass — Palance 1.0 (15)
 
 **Build `1.0 (15)` is live** — archived and uploaded 2026-09-13 from the tip
 of `main` at the time (through commit `f5972c4`), confirmed `processingState
@@ -35,13 +35,13 @@ doc; Part 3 is new.
 | 1 | **Sign in with Apple** | Fresh install → onboarding → Sign in with Apple | Reaches the groups screen; no name/email prompt |
 | 2 | **Sign in with Google** | Settings → sign out → Sign in with Google | Same |
 | 3 | **Create + add expense** | Create a group, add 1–2 expenses, an equal and an exact split | Balances update, totals reconcile to the paisa |
-| 4 | **Universal Link** | Group Settings → copy share link → send to yourself in Messages → tap it | Opens **ClanTab** (not Safari) to that group / the claim screen |
+| 4 | **Universal Link** | Group Settings → copy share link → send to yourself in Messages → tap it | Opens **Palance** (not Safari) to that group / the claim screen |
 | 5 | **Push on receipt** | Background the app; a second member (or the CLI, below) adds an expense | Banner arrives in a few seconds; tapping it opens that group |
 | 6 | **Recurring reminder** | Group Settings → Recurring Reminders → new, ~1–2 min out; background the app | Local notification fires at the scheduled time |
 | 7 | **Settle up** | Settle Up → Mark as Paid on a suggested payment | Chime + success haptic; balance goes to settled |
 | 8 | **Report a Problem** | A member row → Report a Problem, or Group Settings → Report a Problem | Submits; `GET /api/admin/reports` (bearer `ADMIN_TOKEN`) shows the row |
 | 9 | **Delete Account** (do last, both accounts) | Settings → Delete Account → confirm, **then sign back in with the same identity** | Signing back in shows **zero groups** — not just "signed out" (round-3 fixed a real bug here: the local group cache used to survive account deletion) |
-| 10 | **CloudKit backup** | After opening a claimed group, check CloudKit Dashboard → `iCloud.com.clantab.app` → **Production** → Records | A `GroupBackup` record (`recordName` `group-<id>`), `payload` asset decodes to the ledger |
+| 10 | **CloudKit backup** | After opening a claimed group, check CloudKit Dashboard → `iCloud.com.palance.app` → **Production** → Records | A `GroupBackup` record (`recordName` `group-<id>`), `payload` asset decodes to the ledger |
 
 ## Part 2 — round-2, needs a real second identity
 
@@ -99,9 +99,9 @@ worker's `notifyGroup` fires a real APNs push to your device:
 
 ```
 UA='Mozilla/5.0'
-curl -sS -X POST "https://clantab.nakka-labs.workers.dev/api/groups/<GID>/members?token=<TOKEN>" \
+curl -sS -X POST "https://palance.nakka-labs.workers.dev/api/groups/<GID>/members?token=<TOKEN>" \
   -H 'content-type: application/json' -H "user-agent: $UA" -d '{"displayName":"Test"}'
-curl -sS -X POST "https://clantab.nakka-labs.workers.dev/api/groups/<GID>/expenses?token=<TOKEN>" \
+curl -sS -X POST "https://palance.nakka-labs.workers.dev/api/groups/<GID>/expenses?token=<TOKEN>" \
   -H 'content-type: application/json' -H "user-agent: $UA" \
   -d '{"payerId":"<OTHER_MEMBER_ID>","amountMinor":50000,"currency":"INR","description":"Coffee",
        "date":"2026-09-09T12:00:00Z","splitType":"equal","category":"food",

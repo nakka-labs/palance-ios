@@ -11,7 +11,7 @@ function sortDescending(items: Party[]): void {
 }
 
 /**
- * Greedy debt simplification — a port of `ClanTabKit`'s `Simplify.simplify`, kept
+ * Greedy debt simplification — a port of `PalanceKit`'s `Simplify.simplify`, kept
  * byte-identical by the shared golden fixtures.
  *
  * Runs the greedy match **once per currency** (currencies never net against each

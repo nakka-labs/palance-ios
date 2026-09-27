@@ -5,7 +5,7 @@ page. Don't redraw it per surface.
 
 ## Wordmark
 
-The "=" mark (brand blue `#0074CA`, `DESIGN_BIBLE.md` §2) + **ClanTab** in
+The "=" mark (brand blue `#0074CA`, `DESIGN_BIBLE.md` §2) + **Palance** in
 **SF Pro Rounded, Bold** — a system font, and its rounded terminals echo the
 mark's capsule bars. Glyphs are flattened to vector paths in the SVGs, so they
 render identically without the font installed.
@@ -18,7 +18,7 @@ render identically without the font installed.
 Aspect ratio 4324 : 1000 (~4.32 : 1). Keep clear space of at least the mark's
 height on every side. Don't recolour, rotate, or restretch it.
 
-The app **icon** and **launch mark** live in `App/ClanTab/Assets.xcassets/`
+The app **icon** and **launch mark** live in `App/Palance/Assets.xcassets/`
 (`AppIcon`, `LaunchLogo`) — same "=" motif, same blue.
 
 ## Regenerating

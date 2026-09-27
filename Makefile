@@ -14,9 +14,9 @@ bump-build:
 	echo "Bumped CURRENT_PROJECT_VERSION: $$current -> $$next"
 
 test:
-	swift test --package-path ClanTabKit
+	swift test --package-path PalanceKit
 
-# Enable the pre-push hook (ClanTabKit + worker + iOS build/tests, run locally).
+# Enable the pre-push hook (PalanceKit + worker + iOS build/tests, run locally).
 hooks:
 	git config core.hooksPath .githooks
 	@echo "pre-push hook enabled. Bypass with SKIP_CHECKS=1 or SKIP_APP_CHECK=1."
@@ -39,5 +39,5 @@ worker-deploy:
 	npm --prefix worker run deploy
 
 clean:
-	swift package --package-path ClanTabKit clean
-	rm -rf ClanTabKit/.build worker/node_modules
+	swift package --package-path PalanceKit clean
+	rm -rf PalanceKit/.build worker/node_modules

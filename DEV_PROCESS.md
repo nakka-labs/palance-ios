@@ -5,7 +5,7 @@
 > counterpart to `PLAN_BIBLE.md` (the planning-phase philosophy: brainstorm
 > honestly, lock decisions, tag CLI vs. Owner work) and `DESIGN_BIBLE.md`
 > (visual identity). Each repo's own `CHECKLIST.md` stays what's left/done
-> on that app specifically. Lives in `clantab-ios` for now, same reason the
+> on that app specifically. Lives in `palance-ios` for now, same reason the
 > other two Bibles do — only connected repo, most advanced app — belongs
 > at the portfolio level once a `nakka-labs` org repo exists.
 >
@@ -18,10 +18,10 @@
 > doc-sprawl this file argues against in P2 — two copies drift the moment
 > either gets edited and nobody notices. Until a shared repo exists, a new
 > app repo's own `AGENTS.md` should point at this file by path
-> (`../clantab-ios/DEV_PROCESS.md` or the GitHub URL), not paste it in.
+> (`../palance-ios/DEV_PROCESS.md` or the GitHub URL), not paste it in.
 >
 > Every rule below exists because it was learned the expensive way on
-> ClanTab. Cited incidents are in that repo's own history/project memory —
+> Palance. Cited incidents are in that repo's own history/project memory —
 > re-read them before arguing a rule is overkill.
 
 ## The pipeline
@@ -77,14 +77,14 @@ Same rule as `PLAN_BIBLE.md` §1/§2 — restated here because it's the gate
 this whole file's mechanics sit behind. Before writing a line of
 implementation, run a *critical* brainstorm (not a rubber-stamp one) and
 produce a short decision list: each item labeled `Dn`, a real yes/no plus
-one-line why, no "TBD" left in as if it were settled. ClanTab's
+one-line why, no "TBD" left in as if it were settled. Palance's
 monetization call (`D`: free, no IAP — 2026-09-10) is the model: it was
 reasoned from the competitive set and the revenue math, not picked and
 moved on from.
 
 ## P2 — One master checklist, not a doc per feature
 
-ClanTab accumulated a dozen overlapping plan docs (see `CHECKLIST.md`'s
+Palance accumulated a dozen overlapping plan docs (see `CHECKLIST.md`'s
 own header for the exact, authoritative list — don't re-copy that list
 here, it'll drift the way this section's own doc-count already had:
 three different numbers were floating across three files before this
@@ -111,7 +111,7 @@ consequence of it.
 ## P4 — Every addressable thing gets a stable short ID
 
 Decisions are `Dn`, checklist items are `Fn`, process rules are `Pn`,
-operating principles are `On` (or reuse a repo's own scheme — ClanTab
+operating principles are `On` (or reuse a repo's own scheme — Palance
 already does this with `D9`–`D14` for open UX findings and `Track 1` for
 domain-wiring steps). Assign the ID the first time something is written
 down, never renumber it once anything else references it. This is what
@@ -137,7 +137,7 @@ in Python and checked by hand`, `unverified — hypothesis`. "Not yet
 confirmed against a real device" is a flag to treat the fix as unproven,
 not a footnote to skim past.
 
-Concretely this happened twice on ClanTab: the Splid CSV-import fix
+Concretely this happened twice on Palance: the Splid CSV-import fix
 shipped with an honest "never compiled" caveat and a re-implementation
 cross-check instead of a false "tests pass"; the Insights-tab removal
 shipped grep-verified but build-unverified, correctly flagged as such.
@@ -146,7 +146,7 @@ Both are the right pattern — the failure mode this rule prevents is the
 
 ## P6 — A plausible fix is not a confirmed fix (and isn't a reason to skip reverting)
 
-Same-day churn on ClanTab (build 13 shipped an Insights tab fully broken;
+Same-day churn on Palance (build 13 shipped an Insights tab fully broken;
 a same-day "race condition" fix was marked as the cause without
 confirming it against the actual reported bug; a delete-dialog fix broke
 delete entirely on a real device and had to be reverted same day) came

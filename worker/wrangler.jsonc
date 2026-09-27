@@ -1,13 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "clantab",
+  "name": "palance",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-01",
   "workers_dev": true,
   "observability": { "enabled": true },
   "vars": {
     // The `aud` an Apple identity token must carry — the app's bundle id.
-    "APPLE_AUDIENCE": "com.clantab.app",
+    "APPLE_AUDIENCE": "com.palance.app",
     // The `aud` a Google identity token must carry — the iOS OAuth client id
     // (`MANDATORY_LOGIN_PLAN.md` Part 1). Created 2026-09-05.
     "GOOGLE_AUDIENCE": "785063933196-ieaukpoat5r6v5jjr65315o9rniaaahn.apps.googleusercontent.com",
@@ -18,7 +18,7 @@
     // environment. The R2 S3-API credentials are secrets, not vars —
     // `wrangler secret put R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` /
     // `R2_SECRET_ACCESS_KEY`; see `.dev.vars.example`.
-    "R2_BUCKET": "clantab-media"
+    "R2_BUCKET": "palance-media"
     // SESSION_SIGNING_KEY is deliberately NOT here. `wrangler deploy` applies
     // `vars` and a plain var overwrites a same-named secret, so putting it here
     // clobbers the production secret on every deploy. Instead:
@@ -73,8 +73,8 @@
     // pool use, so prod objects are never touched by dev or tests.
     {
       "binding": "MEDIA",
-      "bucket_name": "clantab-media",
-      "preview_bucket_name": "clantab-media-preview"
+      "bucket_name": "palance-media",
+      "preview_bucket_name": "palance-media-preview"
     }
   ],
   "unsafe": {
