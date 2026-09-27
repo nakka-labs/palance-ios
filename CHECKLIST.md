@@ -54,49 +54,91 @@ marketing site to carry over. Nothing below is started yet.
 
 **Code + repo (CLI, device bridge — mechanical, same shape as the prior
 rename):**
-- [ ] `ClanTabKit/` → `PalanceKit/`: package name, `Sources/`, `Tests/`,
+- [x] `ClanTabKit/` → `PalanceKit/`: package name, `Sources/`, `Tests/`,
       every internal type (`ClanTabClient`→`PalanceClient`,
       `ClanTabClientError`→`PalanceClientError`,
       `ClanTabTransport`→`PalanceTransport`,
       `ClanTabWireTypes`→`PalanceWireTypes`,
-      `ClanTabKitVersion`→`PalanceKitVersion`).
-- [ ] `App/ClanTab/` → `App/Palance/`, `ClanTabApp.swift`→
-      `PalanceApp.swift`, `App/ClanTabTests/`→`App/PalanceTests/`.
-- [ ] `App/project.yml`: bundle id `com.clantab.app`→`com.palance.app`,
+      `ClanTabKitVersion`→`PalanceKitVersion`). Done 2026-09-27. Also
+      caught the CSV import format enum's `.clanTab` case → `.palance`
+      (not `palanceTab` — "Palance" has no natural camelCase hump the way
+      "ClanTab" did) and `parseClanTabSplits`/`clanTabCSV` → their
+      `Palance`-prefixed equivalents; none of it is a persisted raw value,
+      purely in-memory. 378 tests green.
+- [x] `App/ClanTab/` → `App/Palance/`, `ClanTabApp.swift`→
+      `PalanceApp.swift`, `App/ClanTabTests/`→`App/PalanceTests/`. Done
+      2026-09-27 — also renamed `App/ClanTabWidget/` →
+      `App/PalanceWidget/` and its two ClanTab-prefixed files
+      (`ClanTabBalanceWidget.swift`, `ClanTabWidgetBundle.swift`), which
+      this bullet didn't call out but are the same shape. 170 tests green.
+- [x] `App/project.yml`: bundle id `com.clantab.app`→`com.palance.app`,
       URL scheme `clantab://`→`palance://`, target/scheme names,
-      `bundleIdPrefix`.
-- [ ] `worker/wrangler.jsonc`: `name` `clantab`→`palance` — this is a
+      `bundleIdPrefix`. Done 2026-09-27 — build succeeds, `xcodebuild test`
+      green.
+- [x] `worker/wrangler.jsonc`: `name` `clantab`→`palance` — this is a
       **new** Worker/Durable-Objects namespace, not a rename in
       Cloudflare's model. Nothing live at the new URL until
       `make worker-deploy` runs, and it starts with zero data (fine,
-      nothing shipped to real users yet).
-- [ ] `AppConfig.swift` `apiBaseURL`: point at the new worker's
-      `workers.dev` URL (or the new custom domain, once wired below).
+      nothing shipped to real users yet). Done 2026-09-27. Also swept
+      `APPLE_AUDIENCE`→`com.palance.app` (harmless now, just a string,
+      won't validate anything until the new SIWA Services ID exists) and
+      `R2_BUCKET`/`bucket_name`/`preview_bucket_name`→`palance-media`(-preview)
+      — **these buckets don't exist yet**, need `wrangler r2 bucket create`
+      before `make worker-deploy` will actually work end-to-end. The
+      `JOIN_CODES` KV namespace id was deliberately left pointing at the
+      **old** namespace (not textually "clantab", so the sweep didn't
+      touch it, and it shouldn't be shared with the old app either) —
+      needs a fresh `wrangler kv namespace create` + new id here before
+      deploy, still open.
+- [x] `AppConfig.swift` `apiBaseURL`: point at the new worker's
+      `workers.dev` URL (or the new custom domain, once wired below). Done
+      2026-09-27 → `https://palance.nakka-labs.workers.dev/`;
+      `shareLinkBaseURL` → `https://palance.nakka.dev/` too.
 - [ ] `APNS_TOPIC` secret: `com.clantab.app`→`com.palance.app` (the APNs
       key itself, Key ID `77K24W288H`, is account-level and reusable —
       only the topic changes). Requires Push Notifications capability
       re-enabled on the **new** App ID first (Owner, Apple Developer
-      portal).
+      portal). Still blocked on that — nothing to set until the new App
+      ID exists.
 - [ ] CloudKit container: new `iCloud.com.palance.app` container, created
       + assigned on the new App ID (Owner), schema redeployed to
       Production (CLI can drive the schema push once the container
       exists — same steps as the original CloudKit backup work above).
       Existing TestFlight-era `GroupBackup` records under the old
-      container are not migrated — nothing real to lose yet.
-- [ ] Full text sweep: `DESIGN.md`, `DESIGN_BIBLE.md`, this file, `AGENTS.md`,
+      container are not migrated — nothing real to lose yet. Still
+      blocked on the Owner creating the container.
+- [x] Full text sweep: `DESIGN.md`, `DESIGN_BIBLE.md`, `AGENTS.md`,
       `docs/appstore/metadata.md`, `docs/privacy-policy.md`, worker
-      README, test-fixtures README, and the marketing site repo's
-      `terms.html`/`privacy-policy.md`/`Home`/`Support`/`Contact` pages.
+      README, test-fixtures README — done 2026-09-27 (global `ClanTab`→
+      `Palance` / `clantab`→`palance` text substitution across every
+      tracked file in the repo, 290 files). **Deliberately excluded
+      `this file` (`CHECKLIST.md`) itself**, despite this bullet's own
+      wording — a blanket sweep here would rewrite its own historical
+      narrative (this section's own header would become the nonsensical
+      "Ground-up rename: Palance → Palance", and the 2026-08-29
+      Squarely→ClanTab entries below would lose the name they actually
+      renamed *from*). Checking off items by hand instead as they land.
+      The marketing site repo's `terms.html`/`privacy-policy.md`/`Home`/
+      `Support`/`Contact` pages are **not done** — that's a separate repo
+      (`nakka-labs/clantab-website`) not checked out here.
 - [ ] Rename `nakka-labs/clantab-ios` → `nakka-labs/palance-ios` and
       `nakka-labs/clantab-website` → `nakka-labs/palance-website`
       (GitHub Settings — `gh` isn't installed on this Mac, same
       limitation as last time). GitHub auto-redirects the old URLs, not
       urgent, but do it before docs reference the new name to avoid a
-      dangling link window.
-- [ ] Delete the stale `.xcodeproj` (gitignored) and
-      `cd App && xcodegen generate` fresh, same as last rename.
-- [ ] `make check` — full kit/app/worker test pass on the renamed tree
-      before touching anything Apple-side.
+      dangling link window. **Update 2026-09-27: `gh` is now installed
+      and authenticated as `nakka-labs`** — this blocker is gone. Not
+      renamed yet pending Owner go-ahead: it's a live public repo (this
+      one is `pages.yml`'s GitHub Pages mirror source too —
+      `nakka-labs.github.io/clantab-ios/` would need re-pointing/checking
+      after a rename), worth a explicit yes before changing its URL.
+- [x] Delete the stale `.xcodeproj` (gitignored) and
+      `cd App && xcodegen generate` fresh, same as last rename. Done
+      2026-09-27.
+- [x] `make check` — full kit/app/worker test pass on the renamed tree
+      before touching anything Apple-side. Done 2026-09-27, green:
+      PalanceKit 378 tests, worker 332 tests, iOS build + PalanceTests 170
+      tests.
 
 **Visual identity + full UI restraint pass (expanded 2026-09-27 — Owner
 decided to merge a full redesign into this same pass, not do it later).
