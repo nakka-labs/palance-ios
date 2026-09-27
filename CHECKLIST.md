@@ -137,24 +137,16 @@ rename):**
       swept: the actual image assets (`brand/icon-1024.png`, favicons,
       `screenshots/*.png`) — those need the real new icon + a Palance
       build to screenshot, not a text change.
-- [ ] Rename `nakka-labs/clantab-ios` → `nakka-labs/palance-ios` and
-      `nakka-labs/clantab-website` → `nakka-labs/palance-website`
-      (GitHub Settings — `gh` isn't installed on this Mac, same
-      limitation as last time). GitHub auto-redirects the old URLs, not
-      urgent, but do it before docs reference the new name to avoid a
-      dangling link window. **Update 2026-09-27: `gh` is now installed
-      and authenticated as `nakka-labs`, and the Owner said go ahead —
-      but the CLI's own harness blocked both `gh repo rename` and
-      `gh repo clone` itself ("Modify Shared Resources," the auto-mode
-      permission classifier), before ever reaching a `gh`/GitHub problem.**
-      Needs the Owner to either run the two `gh repo rename` commands
-      directly, or grant the harness permission for `gh`/`wrangler`
-      write commands (`update-config` skill) so a CLI session can. Also
-      still open regardless of that: the `clantab-ios` repo is
-      `pages.yml`'s GitHub Pages mirror source
-      (`nakka-labs.github.io/clantab-ios/`) — worth a quick check after
-      the rename that Pages still serves correctly at the new
-      `.../palance-ios/` URL.
+- [x] Rename `nakka-labs/clantab-ios` → `nakka-labs/palance-ios` and
+      `nakka-labs/clantab-website` → `nakka-labs/palance-website`. **Done
+      2026-09-27 — Owner ran both `gh repo rename` commands directly**
+      (the CLI harness's own auto-mode classifier had blocked the CLI
+      from running them itself). Verified: both new names resolve, old
+      names redirect, local `origin` remotes updated in both repos'
+      working copies, `git fetch` confirmed working against the new URL.
+      `pages.yml`'s GitHub Pages mirror needed no re-pointing — it just
+      followed the rename; `nakka-labs.github.io/palance-ios/` is live
+      (200).
 - [ ] Push the marketing-site rebrand: `/Users/indra/Dev/clantab-website`,
       branch `rename-palance`, one commit, `make check`-equivalent for a
       static site is just eyeballing it — `git push -u origin
