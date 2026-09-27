@@ -27,6 +27,218 @@
 
 ## To do
 
+### Ground-up rename: ClanTab → Palance — new bundle ID, new ASC app, 2026-09-27
+
+Owner decision 2026-09-27: full rename, new bundle ID
+(`com.palance.app`), new App Store Connect app record — not a relabel of
+the existing one. Owner already checked App Store name search + trademark/
+registration indexes for "Palance," no conflict found. This repeats the
+2026-08-29 Squarely→ClanTab rename's mechanics almost exactly (see
+project memory `rename_squarely_to_clantab.md` for that precedent) but
+with far more surface area, because this time there's a live worker
+deployment, a submitted build, CloudKit/APNs config, and a public
+marketing site to carry over. Nothing below is started yet.
+
+**Decisions still needed before CLI starts (Owner):**
+- [x] Name locked 2026-09-27: **"Palance."** Display name "Palance,"
+      bundle id `com.palance.app`, URL scheme `palance://`, module
+      `PalanceKit`, worker/repo/domain `palance`.
+- [x] Domain: Owner decided 2026-09-27, **keep the `nakka.dev` pattern**
+      → `palance.nakka.dev`. Zero cost, DNS already controlled, matches
+      ClanTab's own precedent and `SHIP_PLAN.md`'s original reasoning for
+      not buying a domain.
+- [ ] What happens to the old `com.clantab.app` App ID, Worker, and
+      `clantab.nakka.dev` site: deleted outright, or left dark
+      (App ID freed for reuse takes real time via Apple support; cheapest
+      is just abandon it, don't actively delete anything Apple-side).
+
+**Code + repo (CLI, device bridge — mechanical, same shape as the prior
+rename):**
+- [ ] `ClanTabKit/` → `PalanceKit/`: package name, `Sources/`, `Tests/`,
+      every internal type (`ClanTabClient`→`PalanceClient`,
+      `ClanTabClientError`→`PalanceClientError`,
+      `ClanTabTransport`→`PalanceTransport`,
+      `ClanTabWireTypes`→`PalanceWireTypes`,
+      `ClanTabKitVersion`→`PalanceKitVersion`).
+- [ ] `App/ClanTab/` → `App/Palance/`, `ClanTabApp.swift`→
+      `PalanceApp.swift`, `App/ClanTabTests/`→`App/PalanceTests/`.
+- [ ] `App/project.yml`: bundle id `com.clantab.app`→`com.palance.app`,
+      URL scheme `clantab://`→`palance://`, target/scheme names,
+      `bundleIdPrefix`.
+- [ ] `worker/wrangler.jsonc`: `name` `clantab`→`palance` — this is a
+      **new** Worker/Durable-Objects namespace, not a rename in
+      Cloudflare's model. Nothing live at the new URL until
+      `make worker-deploy` runs, and it starts with zero data (fine,
+      nothing shipped to real users yet).
+- [ ] `AppConfig.swift` `apiBaseURL`: point at the new worker's
+      `workers.dev` URL (or the new custom domain, once wired below).
+- [ ] `APNS_TOPIC` secret: `com.clantab.app`→`com.palance.app` (the APNs
+      key itself, Key ID `77K24W288H`, is account-level and reusable —
+      only the topic changes). Requires Push Notifications capability
+      re-enabled on the **new** App ID first (Owner, Apple Developer
+      portal).
+- [ ] CloudKit container: new `iCloud.com.palance.app` container, created
+      + assigned on the new App ID (Owner), schema redeployed to
+      Production (CLI can drive the schema push once the container
+      exists — same steps as the original CloudKit backup work above).
+      Existing TestFlight-era `GroupBackup` records under the old
+      container are not migrated — nothing real to lose yet.
+- [ ] Full text sweep: `DESIGN.md`, `DESIGN_BIBLE.md`, this file, `AGENTS.md`,
+      `docs/appstore/metadata.md`, `docs/privacy-policy.md`, worker
+      README, test-fixtures README, and the marketing site repo's
+      `terms.html`/`privacy-policy.md`/`Home`/`Support`/`Contact` pages.
+- [ ] Rename `nakka-labs/clantab-ios` → `nakka-labs/palance-ios` and
+      `nakka-labs/clantab-website` → `nakka-labs/palance-website`
+      (GitHub Settings — `gh` isn't installed on this Mac, same
+      limitation as last time). GitHub auto-redirects the old URLs, not
+      urgent, but do it before docs reference the new name to avoid a
+      dangling link window.
+- [ ] Delete the stale `.xcodeproj` (gitignored) and
+      `cd App && xcodegen generate` fresh, same as last rename.
+- [ ] `make check` — full kit/app/worker test pass on the renamed tree
+      before touching anything Apple-side.
+
+**Visual identity + full UI restraint pass (expanded 2026-09-27 — Owner
+decided to merge a full redesign into this same pass, not do it later).
+Owner reference: personal comparison against the "Settle Up" app's flat,
+low-density screens — not literally cloning it, borrowing the restraint.
+Note: ClanTab already has its own unrelated `SettleUpView.swift` (the
+settle-up-a-debt flow) — don't let the naming coincidence cause confusion
+in commits/docs.**
+
+- [ ] **Design principles first, screens second.** Before touching any
+      SwiftUI view, revise `DESIGN_BIBLE.md` with a "restraint" section
+      codifying what actually reads cleaner in the reference screens:
+      flat solid hero color as the default (current gradient/pattern
+      hero backgrounds are the main offender), a standard icon+label
+      list-row pattern for every menu/settings-style screen, a tighter
+      type-hierarchy scale, and a profile-screen layout standard (cover
+      photo + flat info rows, no card chrome). This is a judgment call,
+      not a mechanical one — Owner reviews and approves the revised
+      `DESIGN_BIBLE.md` section before any screen is touched.
+- [ ] **New app icon + wordmark.** `DESIGN_BIBLE.md`'s icon-generation
+      prompt is templated on the app name directly ("a flat vector app
+      icon for '[App Name]'...") — the current icon was generated for
+      "ClanTab" specifically and does not carry over regardless of the
+      UI pass. Re-run the icon-generation + distinctiveness-check
+      process for "Palance," applying the new restraint principles above
+      if they affect icon style.
+- [ ] **Exemplar batch — prove the pattern on 2-3 screens before
+      sweeping the rest**, then Owner reviews on-device before CLI
+      touches the remaining ~20:
+      - `GroupHomeView.swift` + `BalanceHeroView.swift` +
+        `BalanceBubbleView.swift` (the bubble balance dashboard — flatten
+        the hero, tighten the "should pay" type hierarchy).
+      - `SettingsView.swift` (the menu screen — icon+label row pattern).
+      - `MemberProfileView.swift` (cover + flat info rows).
+- [ ] **Owner approval gate.** Do not proceed past the exemplar batch
+      without an explicit go-ahead on a real device. A redesign applied
+      to all ~28 screens on a wrong direction is expensive rework, and
+      this is happening inside the same window as a bundle-ID/backend
+      rename — isolate the visual risk from the infra risk.
+- [ ] **Remaining screens, once approved** — same restraint principles,
+      applied as separate commits per screen or logical group so
+      `make check` and the eventual TestFlight pass can isolate a
+      regression to one screen, not one giant diff:
+      navigation chrome (`RootView.swift`, `GroupSettingsView.swift`,
+      `GroupInfoView.swift`), transactional flows (`AddExpenseView.swift`,
+      `AddSettlementView.swift`, `EditSettlementView.swift`,
+      `SettleUpView.swift`, `CategoryPickerView.swift`,
+      `PayerPickerView.swift`), groups/people
+      (`CreateGroupView.swift`, `JoinGroupView.swift`,
+      `GroupsListView.swift`, `FriendsView.swift`,
+      `FriendDetailView.swift`, `ClaimMemberView.swift`), and the rest
+      (`InsightsView.swift`, `MySpendingView.swift`,
+      `ActivityDetailView.swift`, `GroupReportView.swift`,
+      `RecentlyDeletedView.swift`, `RecurringRemindersView.swift`,
+      `NewRecurringReminderView.swift`, `ImportCSVView.swift`,
+      `ReportContentView.swift`, `OnboardingView.swift`,
+      `StartView.swift`, `WhatsNewView.swift`,
+      `PreviewGroupHomeView.swift`).
+- [ ] **Full on-device TestFlight pass covers the redesign too** — fold
+      into the "new TestFlight build 1" step below rather than a separate
+      pass; a UI-only regression (tap targets, dark mode, dynamic type)
+      is exactly what that pass is for.
+
+**Apple-side, brand new (Owner — nothing here is a CLI budget, all
+account/portal actions):**
+- [ ] Register new App ID `com.palance.app` in the Apple Developer
+      portal, capabilities: Push Notifications, CloudKit (new container
+      per above), Sign in with Apple.
+- [ ] New Sign in with Apple Services ID + config (redirect URIs,
+      `SIWA_*` secrets regenerated for the new identifiers) —
+      `handleAuthApple`'s `APPLE_AUDIENCE` var updates to the new bundle
+      id.
+- [ ] New Google OAuth client (new bundle id as the iOS client
+      identifier), `GOOGLE_AUDIENCE` var updated.
+- [ ] New App Store Connect app record: name "Palance," bundle id
+      `com.palance.app`, full App Privacy questionnaire redone (the
+      table already exists in `docs/appstore/metadata.md`, just needs
+      re-entry against the new app record — nothing new to figure out),
+      pricing (Free, all territories — same as before), copyright field,
+      category, age rating.
+- [ ] New TestFlight build 1, full on-device pass again (the build-17
+      pass doesn't carry over to a new app record).
+- [ ] Domain wiring: if keeping the `nakka.dev` pattern, add
+      `palance.nakka.dev` as the Worker route once ready — not required
+      for TestFlight, same as ClanTab's own launch order.
+- [ ] Submit fresh. Expect the same Guideline 2.1 new-account
+      information request — the reply drafted in the superseded section
+      above already covers points 1-5; just needs the new screen
+      recording + demo account against the Palance build.
+
+### App Store resubmission — Guideline 2.1 "Information Needed" rejection, 2026-09-16
+
+**SUPERSEDED 2026-09-27** — see "Ground-up rename: ClanTab → Palance" below.
+Owner decided on a full rename with a brand-new bundle ID, which means a
+brand-new App Store Connect app record. This submission and its rejection
+thread are being abandoned, not resumed — the reply/recording/demo-account
+work below is dead unless the rename is reversed. Left in place as record
+of what Apple asked for, since the new app record will hit the same
+Guideline 2.1 new-account check on first submission and this reply already
+does the research for it.
+
+Build 17 (submission `eb4b6230-b7b0-40c4-b04d-371bd5e0dfbd`) was rejected
+same day, 11:07 PM — not a bug/policy violation, Apple's boilerplate for a
+developer account with limited App Review history. They want a reply in
+App Store Connect (also pasted into App Review Information → Notes, "for
+reference on future submissions") covering 6 points before they'll look
+at the build again.
+
+- [ ] **Owner: screen recording on a physical device**, latest OS,
+      starting from launch through the typical user flow. Must show:
+      Sign in with Apple/Google, account deletion (required since the app
+      has account creation), the report/block UGC path, and no paid
+      content to show (free, no IAP — say so in the reply instead).
+- [ ] **Owner: demo account.** Sign in once for real, confirm it works,
+      paste working credentials into the Notes field — Apple calls this
+      out separately under "Prevent Common Issues" and a submission with
+      account-based features and no demo login is a second, avoidable
+      rejection reason.
+- [ ] **Reply text, drafted, ready to paste** (App Store Connect +
+      Notes field):
+      1. Purpose/audience: free expense-splitting app for groups
+         (flatmates, trip groups, families); solves "who owes who"
+         without a spreadsheet.
+      2. Setup: Sign in with Apple or Google (mandatory, no guest mode),
+         create/join a group via invite link, add expenses, view
+         balances, settle up, export PDF. No sample files needed.
+      3. External services: Cloudflare Workers + Durable Objects
+         (backend), Apple Sign In, Google Sign In, Cloudflare R2
+         (photo/receipt storage). No payment processor — app never
+         moves money.
+      4. Regional differences: functions consistently across all
+         regions; currency is per-group selectable.
+      5. Regulated industry / protected material: N/A.
+- [ ] **Before recording: decide on D9** (UPI ID shown regardless of
+      group currency — open item under "End-user flow audit" below). It
+      directly contradicts reply point 4 ("functions consistently across
+      all regions") if a reviewer notices it in the recording. Fix or
+      hide it, or reword point 4 to carve out the exception — don't ship
+      the recording with the contradiction unaddressed.
+- [ ] **Owner: resubmit** once recording + demo account + Notes field are
+      in place.
+
 ### Ship-blocking — App Store submission track
 
 - [x] **Deploy the worker.** Done 2026-09-08. `wrangler whoami` confirmed
