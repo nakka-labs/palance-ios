@@ -62,7 +62,7 @@
   "kv_namespaces": [
     // `joinCode -> groupId`, write-once at group creation, read-many on
     // lookup (`src/lib/join-codes.ts`).
-    { "binding": "JOIN_CODES", "id": "77e548b600ef46f190955c4aa5e4f6aa" }
+    { "binding": "JOIN_CODES", "id": "341ea206a153477eb4dd9f0fad4343e9" }
   ],
   "r2_buckets": [
     // Image storage (`CHECKLIST.md` "Image storage backend (R2)"). One bucket,

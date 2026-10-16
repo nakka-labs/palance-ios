@@ -37,7 +37,9 @@ registration indexes for "Palance," no conflict found. This repeats the
 project memory `rename_squarely_to_clantab.md` for that precedent) but
 with far more surface area, because this time there's a live worker
 deployment, a submitted build, CloudKit/APNs config, and a public
-marketing site to carry over. Nothing below is started yet.
+marketing site to carry over. Code/repo rename and the Cloudflare side
+are done (2026-09-27 / 2026-10-16); Apple/Google portal work, the
+visual-identity pass, and submission remain.
 
 **Decisions still needed before CLI starts (Owner):**
 - [x] Name locked 2026-09-27: **"Palance."** Display name "Palance,"
@@ -101,6 +103,27 @@ rename):**
       the harness permission for `wrangler` write commands
       (`update-config` skill) so a CLI session can run these itself next
       time.
+      **Resolved 2026-10-16 — Owner ran them via `!` in-session.** KV
+      `palance-join-codes` created (id `341ea206a153477eb4dd9f0fad4343e9`,
+      now in `wrangler.jsonc`); R2 `palance-media` + `palance-media-preview`
+      created. (An expired wrangler OAuth token first returned
+      `Authentication error [code: 10000]` — `wrangler logout && wrangler
+      login` fixed it.)
+- [x] **Deploy the new `palance` worker + its secrets.** Done 2026-10-16.
+      `make worker-deploy` → `https://palance.nakka-labs.workers.dev`
+      (version `f29204e8`), all bindings resolved, routes answering.
+      Secrets set: fresh `SESSION_SIGNING_KEY` and `ADMIN_TOKEN` (copy in
+      the keys folder, `palance-admin-token.txt`); `APNS_KEY_ID` /
+      `APNS_TEAM_ID` / `APNS_PRIVATE_KEY` reused from the account-level key
+      `77K24W288H`; `R2_*` from a **new** "Palance R2 User Token" (Object
+      Read & Write, scoped to the two `palance-media*` buckets only — the
+      old "R2 User Token" is `clantab-media*`-only). Verified with a direct
+      SigV4 PUT/GET/DELETE on both buckets (200/200/204) and a 403 on
+      `clantab-media`. Non-generated values live in
+      `palance-worker-secrets.json` in the keys folder (`wrangler secret
+      bulk` input). Still missing: `APNS_TOPIC` and `SIWA_*` (4) — both
+      wait on the new App ID below. Revoke the old ClanTab R2 token once
+      Palance ships.
 - [x] `AppConfig.swift` `apiBaseURL`: point at the new worker's
       `workers.dev` URL (or the new custom domain, once wired below). Done
       2026-09-27 → `https://palance.nakka-labs.workers.dev/`;
