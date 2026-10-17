@@ -14,7 +14,9 @@ const APPLE_AUD = "https://appleid.apple.com";
 
 /** The four secrets from the Apple Developer portal. */
 export interface SiwaConfig {
-  /** The Services ID — the OAuth `client_id` (NOT the app bundle id). */
+  /** The OAuth `client_id`. For codes from the native app this is the app's
+   *  bundle id (`com.palance.app`) — Apple binds the code to it; a Services
+   *  ID is only for web sign-in, which this app doesn't have. */
   servicesId: string;
   teamId: string;
   /** The 10-char id of the `.p8` "Sign in with Apple" key. */

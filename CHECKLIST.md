@@ -128,19 +128,18 @@ rename):**
       `workers.dev` URL (or the new custom domain, once wired below). Done
       2026-09-27 → `https://palance.nakka-labs.workers.dev/`;
       `shareLinkBaseURL` → `https://palance.nakka.dev/` too.
-- [ ] `APNS_TOPIC` secret: `com.clantab.app`→`com.palance.app` (the APNs
+- [x] `APNS_TOPIC` secret: `com.clantab.app`→`com.palance.app` (the APNs
       key itself, Key ID `77K24W288H`, is account-level and reusable —
-      only the topic changes). Requires Push Notifications capability
-      re-enabled on the **new** App ID first (Owner, Apple Developer
-      portal). Still blocked on that — nothing to set until the new App
-      ID exists.
+      only the topic changes). Done 2026-10-17, after the new App ID got
+      Push Notifications.
 - [ ] CloudKit container: new `iCloud.com.palance.app` container, created
       + assigned on the new App ID (Owner), schema redeployed to
       Production (CLI can drive the schema push once the container
       exists — same steps as the original CloudKit backup work above).
       Existing TestFlight-era `GroupBackup` records under the old
-      container are not migrated — nothing real to lose yet. Still
-      blocked on the Owner creating the container.
+      container are not migrated — nothing real to lose yet. Container
+      created + assigned 2026-10-17; **schema push to Production is the
+      remaining CLI step.**
 - [x] Full text sweep: `DESIGN.md`, `DESIGN_BIBLE.md`, `AGENTS.md`,
       `docs/appstore/metadata.md`, `docs/privacy-policy.md`, worker
       README, test-fixtures README — done 2026-09-27 (global `ClanTab`→
@@ -250,13 +249,26 @@ in commits/docs.**
 
 **Apple-side, brand new (Owner — nothing here is a CLI budget, all
 account/portal actions):**
-- [ ] Register new App ID `com.palance.app` in the Apple Developer
+- [x] Register new App ID `com.palance.app` in the Apple Developer
       portal, capabilities: Push Notifications, CloudKit (new container
-      per above), Sign in with Apple.
-- [ ] New Sign in with Apple Services ID + config (redirect URIs,
-      `SIWA_*` secrets regenerated for the new identifiers) —
-      `handleAuthApple`'s `APPLE_AUDIENCE` var updates to the new bundle
-      id.
+      per above), Sign in with Apple. Done 2026-10-17: App Group
+      `group.com.palance.app` + iCloud container `iCloud.com.palance.app`
+      registered first, then `com.palance.app` (App Groups, Associated
+      Domains, iCloud/CloudKit, Push, Sign In with Apple as primary) and
+      `com.palance.app.widget` (App Groups) — matching the two
+      `.entitlements` files exactly.
+- [x] ~~New Sign in with Apple Services ID~~ — **not needed.** A native
+      app's authorization code is bound to its bundle id, so the
+      code-exchange/revoke `client_id` (`SIWA_SERVICES_ID`) is just
+      `com.palance.app`; no Services ID or redirect URIs. Done
+      2026-10-17: new key `77628767JT` ("Palance Sign in with Apple",
+      primary App ID `com.palance.app`; `.p8` in the keys folder) — a
+      fresh key rather than re-pointing ClanTab's `FQ3BW6WG2S`, so the
+      old worker's revocation keeps working. Verified against
+      `appleid.apple.com/auth/token` with a dummy code: `invalid_grant`
+      for `com.palance.app` (client auth accepted) vs `invalid_client`
+      for a bogus id. All four `SIWA_*` secrets set; `APPLE_AUDIENCE`
+      was already `com.palance.app`.
 - [ ] New Google OAuth client (new bundle id as the iOS client
       identifier), `GOOGLE_AUDIENCE` var updated.
 - [ ] New App Store Connect app record: name "Palance," bundle id
