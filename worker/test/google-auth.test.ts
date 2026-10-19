@@ -20,7 +20,7 @@ function b64urlJson(value: unknown): string {
   return b64url(new TextEncoder().encode(JSON.stringify(value)));
 }
 
-const AUDIENCE = "785063933196-ieaukpoat5r6v5jjr65315o9rniaaahn.apps.googleusercontent.com";
+const AUDIENCE = "785063933196-s0jcj48i2frcvbchbovhtfg0o61g9iak.apps.googleusercontent.com";
 
 interface FakeGoogle {
   jwk: GoogleJwk;

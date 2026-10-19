@@ -9,8 +9,8 @@
     // The `aud` an Apple identity token must carry — the app's bundle id.
     "APPLE_AUDIENCE": "com.palance.app",
     // The `aud` a Google identity token must carry — the iOS OAuth client id
-    // (`MANDATORY_LOGIN_PLAN.md` Part 1). Created 2026-09-05.
-    "GOOGLE_AUDIENCE": "785063933196-ieaukpoat5r6v5jjr65315o9rniaaahn.apps.googleusercontent.com",
+    // (`MANDATORY_LOGIN_PLAN.md` Part 1). Palance client, created 2026-10-19.
+    "GOOGLE_AUDIENCE": "785063933196-s0jcj48i2frcvbchbovhtfg0o61g9iak.apps.googleusercontent.com",
     // The R2 bucket the presigned-URL signer targets (`src/lib/media.ts`). This
     // is the production bucket; `wrangler dev` overrides it to the preview
     // bucket via `worker/.dev.vars` so local uploads never touch prod objects.

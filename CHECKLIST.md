@@ -269,8 +269,14 @@ account/portal actions):**
       for `com.palance.app` (client auth accepted) vs `invalid_client`
       for a bogus id. All four `SIWA_*` secrets set; `APPLE_AUDIENCE`
       was already `com.palance.app`.
-- [ ] New Google OAuth client (new bundle id as the iOS client
-      identifier), `GOOGLE_AUDIENCE` var updated.
+- [x] New Google OAuth client (new bundle id as the iOS client
+      identifier), `GOOGLE_AUDIENCE` var updated. Done 2026-10-19: new
+      iOS client `785063933196-s0jcj48i2frcvbchbovhtfg0o61g9iak` ("Palance
+      iOS", bundle `com.palance.app`; plist in the keys folder) — a new
+      client, not an edit of ClanTab's. Swapped in `AppConfig.swift`
+      (client id + reversed id), `project.yml` URL scheme,
+      `wrangler.jsonc` `GOOGLE_AUDIENCE`, and the worker test fixture;
+      `make check` green; worker redeployed (version `da645e64`).
 - [ ] New App Store Connect app record: name "Palance," bundle id
       `com.palance.app`, full App Privacy questionnaire redone (the
       table already exists in `docs/appstore/metadata.md`, just needs
