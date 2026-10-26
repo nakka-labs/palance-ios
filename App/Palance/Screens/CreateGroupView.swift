@@ -106,10 +106,16 @@ struct CreateGroupView: View {
                     .font(.system(.largeTitle, design: .monospaced, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                ShareLink("Share Code", item: response.joinCode)
+                ShareLink(item: response.joinCode) {
+                    Label("Share Code", systemImage: "number")
+                        .labelStyle(.row)
+                }
             }
             Section("Or Share the Link") {
-                ShareLink("Share Invite Link", item: shareURL)
+                ShareLink(item: shareURL) {
+                    Label("Share Invite Link", systemImage: "square.and.arrow.up")
+                        .labelStyle(.row)
+                }
             }
             identitySection(response)
             Section {
@@ -152,14 +158,15 @@ struct CreateGroupView: View {
                     preferredItemEncoding: .compatible,
                     photoLibrary: .shared()
                 ) {
-                    Text("Add Cover Image")
+                    Label("Add Cover Image", systemImage: "photo")
+                        .labelStyle(.row)
                 }
                 .disabled(isSavingCover)
                 Spacer()
                 if isSavingCover { ProgressView() }
             }
             if let identityErrorMessage {
-                Text(identityErrorMessage).font(.caption).foregroundStyle(.red)
+                Text(identityErrorMessage).font(.footnote).foregroundStyle(.red)
             }
         } header: {
             Text("Make It Yours")

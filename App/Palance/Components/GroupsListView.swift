@@ -17,7 +17,7 @@ struct GroupsListView: View {
         VStack(alignment: .leading, spacing: 0) {
             if let caption {
                 Text(caption)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 6)
             }
@@ -28,16 +28,16 @@ struct GroupsListView: View {
                 } label: {
                     HStack(spacing: 12) {
                         groupBadge(for: group)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(group.name.isEmpty ? "Group" : group.name)
-                                .foregroundStyle(.primary)
-                            if let balanceLine = Self.balanceLine(for: group) {
-                                Text(balanceLine)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        Text(group.name.isEmpty ? "Group" : group.name)
+                            .foregroundStyle(.primary)
                         Spacer()
+                        // The balance as the row's trailing value, not a
+                        // caption under the name (`DESIGN_BIBLE.md` §9 rule 7).
+                        if let balanceLine = Self.balanceLine(for: group) {
+                            Text(balanceLine)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(.tertiary)

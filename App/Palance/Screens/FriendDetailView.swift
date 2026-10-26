@@ -45,16 +45,20 @@ struct FriendDetailView: View {
 
     var body: some View {
         List {
+            // Same profile layout as a group member's (`DESIGN_BIBLE.md` §9
+            // rule 9). A friend carries no photo key across groups, so the
+            // band is always their color + initials.
             Section {
-                HStack(spacing: 14) {
-                    MemberAvatar(name: friend.displayName, size: 56)
+                VStack(alignment: .leading, spacing: 12) {
+                    ProfileCoverBand(name: friend.displayName, avatarKey: nil)
                     Text(friend.displayName)
                         .font(.title2.weight(.semibold))
                         .lineLimit(2)
+                        .padding(.horizontal)
                 }
-                .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
             }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
 
             Section("Balance") {
                 Text(CrossGroupSummary.line(currentNet, name: friend.displayName))
