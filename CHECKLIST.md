@@ -277,6 +277,14 @@ account/portal actions):**
       (client id + reversed id), `project.yml` URL scheme,
       `wrangler.jsonc` `GOOGLE_AUDIENCE`, and the worker test fixture;
       `make check` green; worker redeployed (version `da645e64`).
+      **Verified on device 2026-10-19** (dev-signed build on a real
+      iPhone, `wrangler tail` on the live worker): Sign in with Apple →
+      session-only routes succeeded; create group + claim, add member +
+      expense; profile photo presign → R2 PUT → `PUT /api/auth/avatar`
+      accepted (so the object really landed in `palance-media`); sign
+      out; Sign in with Google → session routes succeeded. Push not
+      testable on a dev build (sandbox token vs the worker's production
+      APNs host) — folds into the TestFlight pass.
 - [ ] New App Store Connect app record: name "Palance," bundle id
       `com.palance.app`, full App Privacy questionnaire redone (the
       table already exists in `docs/appstore/metadata.md`, just needs

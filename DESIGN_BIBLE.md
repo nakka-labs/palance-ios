@@ -259,6 +259,115 @@ frame and background, same mermaid diagram style. Someone clicking
 through 3-4 of these repos in one sitting notices structure before they
 notice whether two accent blues are the exact same hex.
 
+## 9. Restraint — how a screen is built
+
+> **DRAFT, 2026-10-26 — pending owner approval.** Nothing in this section
+> is applied to any screen until it's approved (`CHECKLIST.md` "Ground-up
+> rename" → visual identity pass). Written against the current build's
+> Group Home, Settings, and Member Profile, with a competitor's flat,
+> low-density screens as the reference for *restraint* — not for layout,
+> not for color, and not copied.
+
+§1-§8 say what the pieces are. This section says how few of them a screen
+gets to use at once. The current app's problem isn't any single wrong
+choice — it's that every screen spends a little of everything: a gradient
+here, a glow shadow there, a tinted icon, a blue text button, a caption
+under a row. Each was reasonable alone; together they read as busy.
+Restraint is a budget, not a style.
+
+**1. One focal point per screen, and it's flat.** Each screen has at most
+one thing that's visually louder than a list row (Group Home: the
+balance; Member Profile: the person; Settings: nothing). That focal
+surface is a flat fill — `Surface.raised` or the group's accent at a
+low-chroma band of the §2 formula — with no gradient wash, no pattern,
+and no shadow. **On approval this narrows §3's gradient exception** to
+the app icon and the shareable recap card only (an exported image, not
+in-app chrome); the Group Home balance hero loses its wash and glow.
+
+**2. Elevation only for things that float.** Shadows belong to what
+genuinely sits above the content — a toast, a floating button, a sheet.
+Nothing in the scrolling flow gets a shadow or a custom card shape; the
+system list/form grouping is the only container.
+
+**3. A four-step type scale, and nothing between.**
+
+| Role | Style | Used for |
+|---|---|---|
+| Hero | SF Rounded 28 bold, tabular (§1) | the one focal number |
+| Title | `.title2` semibold | the screen's subject (a person's name, a group's name) — once per screen |
+| Body | `.body` | every row label and row value |
+| Secondary | `.subheadline` / `.footnote`, `.secondary` | labels *above* a hero number, section footers, timestamps |
+
+No `.title3`, no semibold body, no ad-hoc point sizes in screen code. The
+label above a hero number is *smaller* than body, not bigger — "You owe"
+whispers, the amount speaks.
+
+**4. The row standard — one shape for every menu-like row.** A leading
+SF Symbol in a fixed 28pt frame, monochrome `.secondary` (never
+accent-tinted, never multicolor); a `.body` label; an optional trailing
+value in `.secondary`; a chevron if it navigates. Actions are rows of the
+same shape, not bare blue text buttons floating in a form. Every row on a
+menu-like screen has an icon, or none do — never a mix.
+
+**5. Key-value rows for facts.** Facts about a thing (a member's UPI ID,
+a group's currency, the app version) are label-left (`.secondary`),
+value-right (`.primary`), one per row, hairline-separated. No icon, no
+caption beneath.
+
+**6. Color is spent on meaning only.**
+- The accent appears on at most: the one primary action on the screen,
+  selected/active states, and navigation tint.
+- Green/red appear only on money amounts — never on labels, icons, or
+  headers ("Danger Zone" doesn't get a red header; see 8).
+- Member identity colors (§2) appear only on avatars/initials.
+
+**7. One fact per row; explanations go in footers.** A row never carries
+a stacked caption. If a row needs explaining, the explanation is the
+section's footer, written once.
+
+**8. Destructive actions: last, plain, red label.** The final section of
+the screen, a single row whose label is red, with the consequence in
+that section's footer and the real friction in the confirmation dialog —
+not in a red header, an icon badge, or a custom "danger" row component.
+(This replaces `DangerZoneRow`'s treatment in both `SettingsView` and
+`GroupSettingsView` — UX audit fresh-eyes [3]
+added it to give Delete Account more weight than a bare red link; the
+dialog and the footer carry that weight now, without the chrome.)
+
+**9. The profile layout.** A member's (or your own) profile is:
+full-width cover band at the top — their photo if they have one,
+otherwise a flat fill in their member color with large initials — then
+their name as the screen's Title, then plain key-value and row-standard
+sections. No avatar-plus-name header card, no floating circle over a
+banner.
+
+### What this changes on the exemplar screens
+
+| Screen | Today | Under §9 |
+|---|---|---|
+| Group Home hero (`BalanceHeroView`) | raised card, group gradient wash, accent glow shadow, `.title3` semibold label | flat fill, no shadow; label drops to Secondary; Settle Up stays as the one accent action inside it |
+| Group Home hero carousel | a 3-page swipe `TabView` (hero → bubbles → Insights preview card) with page dots, a permanent chevron, and a coach mark to make the swipe discoverable | **open question for the owner** — under 1 the hero should stand alone: bubbles and Insights become two row-standard rows directly below it ("Who Owes Whom", "Spending Insights"), each opening its own screen/sheet, and the dots/chevron/coach mark go. The alternative is keeping the carousel but flattening each page |
+| Balance bubbles (`BalanceBubbleView`) | stays — it's data, not decoration | money labels follow 3 (no 9pt text); only member colors on the circles |
+| Settings | mixed rows: an icon'd status line, an avatar row, blue text buttons, a Danger Zone header with a caption row | your profile as a row at the top (avatar + name → your profile screen); every other row follows 4; Delete Account per 8 |
+| Member Profile | 56pt avatar + name in a header row, colored balance section | cover band + Title per 9; balance as key-value rows (amounts keep green/red per 6) |
+
+### What this does *not* change
+
+§1's display face, §2's color formula and `Surface` tiers, §4's SF
+Symbols rule, §5's motion/sound — all stand. This section only limits
+how much of them any one screen spends.
+
+### Review checklist (per screen, before it ships)
+
+- [ ] At most one focal surface, flat, no shadow.
+- [ ] Only the four type roles; no ad-hoc sizes.
+- [ ] Every menu-like row follows the row standard; no bare text buttons.
+- [ ] Accent used only for the primary action / selection / nav.
+- [ ] Green/red only on money.
+- [ ] No captions under rows; explanations in footers.
+- [ ] Destructive action last, plain red label, consequence in footer.
+- [ ] Light + dark + largest Dynamic Type checked.
+
 ## Explicitly not doing (yet)
 
 - No shared component library or design-token file across native repos —
