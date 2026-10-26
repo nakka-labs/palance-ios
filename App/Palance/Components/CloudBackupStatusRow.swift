@@ -20,16 +20,14 @@ struct CloudBackupStatusRow: View {
     @State private var status: CKAccountStatus?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "icloud")
-                .foregroundStyle(.secondary)
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("iCloud Backup")
-                Text(statusLine)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        // Row standard + the status as its trailing value (`DESIGN_BIBLE.md`
+        // §9 rules 4 and 7) — was a title with a caption stacked under it.
+        LabeledContent {
+            Text(statusLine)
+                .multilineTextAlignment(.trailing)
+        } label: {
+            Label("iCloud Backup", systemImage: "icloud")
+                .labelStyle(.row)
         }
         .task { status = await accountStatus() }
     }

@@ -1,5 +1,4 @@
 import SwiftUI
-import PhotosUI
 import PalanceKit
 
 /// Account settings — a top-level tab (`CHECKLIST.md` UX audit [6]; used to be
@@ -24,13 +23,9 @@ struct SettingsView: View {
     /// `auth.isSignedIn` on its own).
     let onDone: () -> Void
 
-    @Environment(\.avatarImageLoader) private var avatarLoader
     @State private var confirmingDelete = false
     @State private var tipsResetConfirmation = false
     @State private var sheetError: String?
-    @State private var pickedPhoto: PhotosPickerItem?
-    @State private var photoError: String?
-    @State private var nameDraft = ""
     @AppStorage("palance.theme") private var theme = AppTheme.system
     /// Which screen a returning user lands on (`CHECKLIST.md` "Settings:
     /// launch-screen preference"). `""` — the dashboard; a groupId — that
@@ -40,123 +35,19 @@ struct SettingsView: View {
     private let deletionCaveat =
         "Your groups and expenses stay. You'll lose cross-device sync and can't recover this account."
 
+    // Laid out per `DESIGN_BIBLE.md` §9: your profile as one row at the top
+    // (photo, name, sign-in method, and Sign Out live on `MyProfileView` now);
+    // every other row follows the row standard; the version is the last
+    // section's footer rather than a fact row among menu rows; Delete Account
+    // is a plain red row, last, with its consequence in the footer (it used
+    // to be a `DangerZoneRow` under a red "Danger Zone" header).
     var body: some View {
         Form {
-            Section {
-                if auth.isSignedIn {
-                    Label(
-                        auth.session?.provider == .google ? "Signed in with Google" : "Signed in with Apple",
-                        systemImage: "checkmark.seal.fill"
-                    )
-                    .foregroundStyle(.secondary)
+            accountSections
 
-                    profilePhotoRow
+            appSection
 
-                    yourNameRow
-
-                    Button("Sign Out") { auth.signOut() }
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Sync your groups across devices")
-                            .font(.subheadline.weight(.medium))
-                        Text("Sign in so you don't lose your groups if you switch phones.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        AppleSignInButton(
-                            onCredential: { token, userID, authCode in
-                                sheetError = nil
-                                Task { await auth.signIn(identityToken: token, userID: userID, authorizationCode: authCode) }
-                            },
-                            onFailure: { sheetError = $0 }
-                        )
-                        .frame(height: 40)
-                        GoogleSignInButton(
-                            onCredential: { token in
-                                sheetError = nil
-                                Task { await auth.signInWithGoogle(identityToken: token) }
-                            },
-                            onFailure: { sheetError = $0 }
-                        )
-                        .frame(height: 40)
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                if let message = auth.errorMessage ?? sheetError ?? photoError {
-                    Text(message).font(.caption).foregroundStyle(.red)
-                }
-            } header: {
-                Text("Account")
-            }
-
-            // My Spending (`CHECKLIST.md` D14) — the one piece of the old
-            // Insights tab that wasn't a duplicate of Home's own dashboard,
-            // rebuilt small as a single screen reached from here rather than
-            // a whole tab. Signed-in only: nothing to chart otherwise.
-            if auth.isSignedIn {
-                Section {
-                    NavigationLink {
-                        MySpendingView(client: client, knownGroups: knownGroups, auth: auth)
-                    } label: {
-                        Label("My Spending", systemImage: "chart.pie")
-                    }
-                }
-            }
-
-            // iCloud backup status (`CHECKLIST.md` R15) — `CloudKitGroupBackup`
-            // itself only ever runs for a claimed group (`myIdentity` guard
-            // in `GroupViewModel.updateCaches`), so this row is as pointless
-            // pre-sign-in as My Spending above.
-            if auth.isSignedIn {
-                Section {
-                    CloudBackupStatusRow(knownGroups: knownGroups)
-                }
-            }
-
-            // "Settle Across Groups" used to live here as its own screen
-            // (`PeopleView`) — retired (`CHECKLIST.md` UX audit [8]): the
-            // same capability now lives on every friend's own detail screen,
-            // reached from the Friends tab, so there's no separate entry
-            // point to keep. Delete Account used to be red text one row
-            // below Sign Out, with no separating header — the least emphasis
-            // of any destructive action in the app, despite being the most
-            // irreversible one. Now it gets the same "Danger Zone" treatment
-            // as Group Settings' Regenerate/Archive/Leave trio (`CHECKLIST.md`
-            // UX audit fresh-eyes-pass [3]).
-            if auth.isSignedIn {
-                Section {
-                    DangerZoneRow(
-                        icon: "person.crop.circle.badge.xmark",
-                        title: "Delete Account",
-                        caption: deletionCaveat,
-                        isLoading: auth.isBusy,
-                        action: { confirmingDelete = true }
-                    )
-                } header: {
-                    Text("Danger Zone").foregroundStyle(.red)
-                }
-            }
-
-            Section("App") {
-                Picker("Appearance", selection: $theme) {
-                    ForEach(AppTheme.allCases) { Text($0.label).tag($0) }
-                }
-                if auth.isSignedIn, !launchGroups.isEmpty {
-                    Picker("Open at Launch", selection: $launchGroupId) {
-                        Text("Dashboard").tag("")
-                        ForEach(launchGroups) { group in
-                            Text(Self.launchLabel(for: group)).tag(group.groupId)
-                        }
-                    }
-                }
-                LabeledContent("Version", value: Self.appVersion)
-
-                Button("Show Tips Again") {
-                    onboarding.reset()
-                    coachMarks?.resetAll()
-                    tipsResetConfirmation = true
-                }
-            }
+            deleteSection
         }
         .alert("Tips Reset", isPresented: $tipsResetConfirmation) {
             Button("OK", role: .cancel) {}
@@ -164,10 +55,6 @@ struct SettingsView: View {
             Text("The walkthrough and every one-time tip will show again.")
         }
         .navigationTitle("Settings")
-        .onChange(of: pickedPhoto) { _, item in
-            guard let item else { return }
-            Task { await handlePickedPhoto(item) }
-        }
         .confirmationDialog(
             "Delete your account?",
             isPresented: $confirmingDelete,
@@ -182,90 +69,139 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Profile photo (CHECKLIST.md "Profile photos")
-
+    /// Signed in: your profile row, then My Spending + iCloud status. Signed out: the sign-in buttons.
     @ViewBuilder
-    private var profilePhotoRow: some View {
-        HStack(spacing: 12) {
-            MemberAvatar(name: myDisplayName, avatarKey: auth.myAvatarKey, size: 44)
-
-            PhotosPicker(
-                selection: $pickedPhoto,
-                matching: .images,
-                preferredItemEncoding: .compatible,
-                photoLibrary: .shared()
-            ) {
-                Text(auth.myAvatarKey == nil ? "Add Profile Photo" : "Change Photo")
-            }
-            .disabled(auth.isUpdatingAvatar)
-
-            Spacer()
-
-            if auth.isUpdatingAvatar {
-                ProgressView()
-            }
-        }
-
-        if auth.myAvatarKey != nil {
-            Button("Remove Photo", role: .destructive) {
-                Task {
-                    if let key = await auth.removeAvatar() {
-                        avatarLoader?.invalidate(key)
+    private var accountSections: some View {
+        if auth.isSignedIn {
+            Section {
+                NavigationLink {
+                    MyProfileView(auth: auth)
+                } label: {
+                    HStack(spacing: 12) {
+                        MemberAvatar(name: myDisplayName, avatarKey: auth.myAvatarKey, size: 40)
+                        Text(myDisplayName)
                     }
                 }
             }
-            .disabled(auth.isUpdatingAvatar)
+
+            Section {
+                NavigationLink {
+                    MySpendingView(client: client, knownGroups: knownGroups, auth: auth)
+                } label: {
+                    Label("My Spending", systemImage: "chart.pie")
+                        .labelStyle(.row)
+                }
+                // `CloudKitGroupBackup` only ever runs for a claimed group
+                // (`CHECKLIST.md` R15), so this is signed-in only too.
+                CloudBackupStatusRow(knownGroups: knownGroups)
+            }
+        } else {
+            signedOutSection
         }
     }
 
-    /// The signed-in user's name for the initials fallback — the identity's
-    /// central name (`CHECKLIST.md` R1) once it has one, else their name in
-    /// the most-recently-claimed group (the old heuristic, from before there
-    /// was a central name to ask), else a neutral placeholder.
-    private var myDisplayName: String {
-        auth.myDisplayName ?? auth.groups.first?.displayName ?? "You"
-    }
-
-    // MARK: - Your Name (CHECKLIST.md R1 "Universal, identity-level display name")
-
-    private var trimmedNameDraft: String { nameDraft.trimmingCharacters(in: .whitespaces) }
-    private var isNameDirty: Bool { !trimmedNameDraft.isEmpty && trimmedNameDraft != (auth.myDisplayName ?? "") }
-
+    /// Appearance, launch screen, tips.
     @ViewBuilder
-    private var yourNameRow: some View {
-        HStack {
-            TextField("Your Name", text: $nameDraft, prompt: Text("Your Name"))
-            if auth.isUpdatingDisplayName {
-                ProgressView()
-            } else if isNameDirty {
-                Button("Save") { Task { await auth.setDisplayName(trimmedNameDraft) } }
+    private var appSection: some View {
+        Section {
+            Picker(selection: $theme) {
+                ForEach(AppTheme.allCases) { Text($0.label).tag($0) }
+            } label: {
+                Label("Appearance", systemImage: "circle.lefthalf.filled")
+                    .labelStyle(.row)
+            }
+            if auth.isSignedIn, !launchGroups.isEmpty {
+                Picker(selection: $launchGroupId) {
+                    Text("Dashboard").tag("")
+                    ForEach(launchGroups) { group in
+                        Text(Self.launchLabel(for: group)).tag(group.groupId)
+                    }
+                } label: {
+                    Label("Open at Launch", systemImage: "house")
+                        .labelStyle(.row)
+                }
+            }
+            Button {
+                onboarding.reset()
+                coachMarks?.resetAll()
+                tipsResetConfirmation = true
+            } label: {
+                Label("Show Tips Again", systemImage: "lightbulb")
+                    .labelStyle(.row)
+            }
+        } footer: {
+            if !auth.isSignedIn {
+                Text("Palance \(Self.appVersion) · Nakka-Labs")
             }
         }
-        .onChange(of: auth.myDisplayName, initial: true) { _, newValue in
-            // Don't clobber an in-progress edit if the fetch resolves late.
-            if nameDraft.isEmpty { nameDraft = newValue ?? "" }
+    }
+
+    /// Delete Account — last, plain red row, consequence + version in the footer (§9 rule 8).
+    @ViewBuilder
+    private var deleteSection: some View {
+        if auth.isSignedIn {
+            Section {
+                Button { confirmingDelete = true } label: {
+                    HStack {
+                        Label("Delete Account", systemImage: "person.crop.circle.badge.xmark")
+                            .labelStyle(.row)
+                            .foregroundStyle(.red)
+                        Spacer()
+                        if auth.isBusy { ProgressView() }
+                    }
+                }
+                .disabled(auth.isBusy)
+            } footer: {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let message = auth.errorMessage {
+                        Text(message).foregroundStyle(.red)
+                    }
+                    Text(deletionCaveat)
+                    Text("Palance \(Self.appVersion) · Nakka-Labs")
+                }
+            }
         }
     }
 
-    private func handlePickedPhoto(_ item: PhotosPickerItem) async {
-        photoError = nil
-        defer { pickedPhoto = nil }
-
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            let picked = UIImage(data: data),
-            let jpeg = ProfileImage.jpegData(from: picked),
-            let compressed = UIImage(data: jpeg)
-        else {
-            photoError = "Couldn't read that photo. Try another."
-            return
+    /// The brief window between "signed out" and "signed back in" — sign-in
+    /// is mandatory (`MANDATORY_LOGIN_PLAN.md` Part 3), so this rarely shows.
+    private var signedOutSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                AppleSignInButton(
+                    onCredential: { token, userID, authCode in
+                        sheetError = nil
+                        Task { await auth.signIn(identityToken: token, userID: userID, authorizationCode: authCode) }
+                    },
+                    onFailure: { sheetError = $0 }
+                )
+                .frame(height: 40)
+                GoogleSignInButton(
+                    onCredential: { token in
+                        sheetError = nil
+                        Task { await auth.signInWithGoogle(identityToken: token) }
+                    },
+                    onFailure: { sheetError = $0 }
+                )
+                .frame(height: 40)
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text("Sign In")
+        } footer: {
+            if let message = auth.errorMessage ?? sheetError {
+                Text(message).foregroundStyle(.red)
+            } else {
+                Text("Sign in so you don't lose your groups if you switch phones.")
+            }
         }
+    }
 
-        if let key = await auth.setAvatar(jpegData: jpeg) {
-            // Show the new photo immediately, everywhere, without a round-trip.
-            avatarLoader?.prime(key, with: compressed)
-        }
-        // A failure leaves `auth.errorMessage` set (shown above).
+    /// The signed-in user's name for the profile row — the identity's central
+    /// name (`CHECKLIST.md` R1) once it has one, else their name in the
+    /// most-recently-claimed group, else a neutral placeholder.
+    private var myDisplayName: String {
+        auth.myDisplayName ?? auth.groups.first?.displayName ?? "You"
     }
 
     /// The known-groups list for the "Open at Launch" picker — same source and

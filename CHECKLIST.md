@@ -208,14 +208,18 @@ in commits/docs.**
       (§3's gradient exception narrowed to icon + recap image), the
       hero carousel replaced by two rows, `DangerZoneRow` retired for a
       plain red-label row, and a cover-band profile layout.
-- [ ] **New app icon + wordmark.** `DESIGN_BIBLE.md`'s icon-generation
+- [x] **New app icon + wordmark.** `DESIGN_BIBLE.md`'s icon-generation
       prompt is templated on the app name directly ("a flat vector app
       icon for '[App Name]'...") — the current icon was generated for
       "ClanTab" specifically and does not carry over regardless of the
       UI pass. Re-run the icon-generation + distinctiveness-check
       process for "Palance," applying the new restraint principles above
       if they affect icon style.
-- [ ] **Exemplar batch — prove the pattern on 2-3 screens before
+      **Closed 2026-10-26, owner call: keep the "=".** The mark was never
+      ClanTab-specific — a settled balance — and reads at least as well
+      for "Palance"; §3's distinctiveness check is owner-confirmed done.
+      The two-stop gradient stays on the icon (§3, as narrowed by §9).
+- [x] **Exemplar batch — prove the pattern on 2-3 screens before
       sweeping the rest**, then Owner reviews on-device before CLI
       touches the remaining ~20:
       - `GroupHomeView.swift` + `BalanceHeroView.swift` +
@@ -223,6 +227,16 @@ in commits/docs.**
         the hero, tighten the "should pay" type hierarchy).
       - `SettingsView.swift` (the menu screen — icon+label row pattern).
       - `MemberProfileView.swift` (cover + flat info rows).
+      **Built 2026-10-26**, `make check` green, installed on the owner's
+      iPhone: Group Home (flat tinted hero, carousel → "Who Owes Whom" +
+      "Spending Insights" rows, new `WhoOwesWhomView`); Settings (profile
+      row → new `MyProfileView` holding photo/name/sign-in/Sign Out,
+      row-standard rows via new `RowLabelStyle`, iCloud status as a
+      trailing value, plain red Delete Account with version + Nakka-Labs
+      credit in the footer); Member Profile (new `ProfileCoverBand`,
+      Net + "Made Up Of" key-value sections, settle-up actions as rows).
+      `DangerZoneRow` is still used by `GroupSettingsView` — retire it
+      there in the remaining-screens pass.
 - [ ] **Owner approval gate.** Do not proceed past the exemplar batch
       without an explicit go-ahead on a real device. A redesign applied
       to all ~28 screens on a wrong direction is expensive rework, and

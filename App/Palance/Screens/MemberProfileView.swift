@@ -98,68 +98,37 @@ struct MemberProfileView: View {
 
     var body: some View {
         List {
-            Section {
-                HStack(spacing: 14) {
-                    if let avatarKey = member.avatarKey {
-                        Button { showingAvatarViewer = true } label: {
-                            MemberAvatar(member, size: 56)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("View \(member.displayName)'s photo")
-                        .fullScreenCover(isPresented: $showingAvatarViewer) {
-                            ReceiptViewer(key: avatarKey, accessToken: accessToken)
-                        }
-                    } else {
-                        // No photo to enlarge — an initials-fallback circle
-                        // isn't worth a full-screen viewer.
-                        MemberAvatar(member, size: 56)
-                    }
-                    Text(member.displayName)
-                        .font(.title2.weight(.semibold))
-                        .lineLimit(2)
-                }
-                .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
-            }
+            headerSection
 
-            Section("Balance in this group") {
-                if balances.isEmpty {
-                    Text("Settled up").foregroundStyle(.secondary)
-                } else {
-                    // The breakdown first — every other member's own edge
-                    // with this one ("Priya owes ₹500", "Ana is owed ₹200")
-                    // — then the net total each edge adds up to, visually
-                    // set apart so the two never read as the same kind of
-                    // line.
-                    ForEach(allEdges, id: \.self) { edge in
-                        let theyOweMe = edge.toId == member.id
-                        let amount = MoneyFormat.string(minorUnits: edge.amountMinor, currency: edge.currency)
-                        HStack {
-                            Text("\(name(for: otherPartyId(edge))) \(theyOweMe ? "owes" : "is owed")")
-                            Spacer()
-                            Text(amount).foregroundStyle(theyOweMe ? .green : .red)
-                        }
-                    }
-                    ForEach(balances, id: \.currency) { balance in
-                        let amount = MoneyFormat.string(minorUnits: abs(balance.netMinor), currency: balance.currency)
-                        HStack {
-                            Text("Total").fontWeight(.semibold)
-                            Spacer()
-                            Text(amount)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(balance.netMinor > 0 ? .green : .red)
-                        }
-                    }
-                }
-            }
+            balanceSections
 
             if myMemberId != nil, !settleEdges.isEmpty {
-                Section("Settle up") {
+                Section {
                     ForEach(settleEdges, id: \.self) { edge in
-                        settleRow(edge)
+                        settleRows(edge)
                     }
+                } header: {
+                    Text("Settle Up")
+                } footer: {
                     if let remindError {
-                        Text(remindError).foregroundStyle(.red).font(.footnote)
+                        Text(remindError).foregroundStyle(.red)
+                    }
+                }
+            }
+
+            if let vpa = member.upiVpa, !vpa.isEmpty {
+                Section {
+                    LabeledContent("UPI ID") {
+                        HStack(spacing: 12) {
+                            Text(vpa).textSelection(.enabled)
+                            Button {
+                                UIPasteboard.general.string = vpa
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Copy UPI ID")
+                        }
                     }
                 }
             }
@@ -171,22 +140,6 @@ struct MemberProfileView: View {
                     }
                 }
             }
-
-            if let vpa = member.upiVpa, !vpa.isEmpty {
-                Section("UPI ID") {
-                    HStack {
-                        Text(vpa).textSelection(.enabled)
-                        Spacer()
-                        Button {
-                            UIPasteboard.general.string = vpa
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Copy UPI ID")
-                    }
-                }
-            }
         }
         .scrollContentBackground(.hidden)
         .background(Surface.canvas)
@@ -195,33 +148,86 @@ struct MemberProfileView: View {
         .task { lastRemindedAt = remindHistory.load() }
     }
 
+    /// Cover band + the member's name (`DESIGN_BIBLE.md` §9 rule 9).
     @ViewBuilder
-    private func settleRow(_ edge: SimplifiedSettlement) -> some View {
-        let iPay = edge.fromId == myMemberId
-        let amount = MoneyFormat.string(minorUnits: edge.amountMinor, currency: edge.currency)
-        VStack(alignment: .leading, spacing: 6) {
-            Text(iPay ? "You pay \(member.displayName) \(amount)" : "\(member.displayName) pays you \(amount)")
-            if iPay,
-               let url = UPIPayLink.url(
-                   vpa: member.upiVpa,
-                   payeeName: member.displayName,
-                   amountMinor: edge.amountMinor,
-                   currency: edge.currency
-               ) {
-                Link(destination: url) {
-                    Label("Pay via UPI", systemImage: "indianrupeesign.circle")
+    private var headerSection: some View {
+        // Cover band + name as the Title (`DESIGN_BIBLE.md` §9 rule 9) —
+        // was a 56pt avatar beside a `.title2` name in a header row.
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                ProfileCoverBand(name: member.displayName, avatarKey: member.avatarKey) {
+                    showingAvatarViewer = true
                 }
-                .font(.subheadline)
-                .accessibilityLabel("Open a UPI app to pay \(member.displayName) \(amount)")
-            }
-            // Opposite direction of `BalanceAgingScheduler` (`CHECKLIST.md`
-            // "Remind button"): they owe me, so let me nudge them instead of
-            // waiting for the scheduler to nudge me about what I owe.
-            if !iPay {
-                remindButton(edge)
+                Text(member.displayName)
+                    .font(.title2.weight(.semibold))
+                    .lineLimit(2)
+                    .padding(.horizontal)
             }
         }
-        .padding(.vertical, 2)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+
+    /// Net balance, then the per-person breakdown that adds up to it.
+    @ViewBuilder
+    private var balanceSections: some View {
+        // Net first, as key-value rows (§9 rule 5); amounts keep green/red
+        // (rule 6). The breakdown that adds up to it — round-3 playtest,
+        // 2026-09-13 — is its own section rather than sharing one with a
+        // bolded "Total" row (rule 3: no semibold body).
+        Section("Balance in This Group") {
+            if balances.isEmpty {
+                LabeledContent("Net", value: "Settled up")
+            } else {
+                ForEach(balances, id: \.currency) { balance in
+                    LabeledContent("Net") {
+                        Text(MoneyFormat.string(minorUnits: abs(balance.netMinor), currency: balance.currency))
+                            .foregroundStyle(balance.netMinor > 0 ? .green : .red)
+                    }
+                }
+            }
+        }
+
+        if !balances.isEmpty, !allEdges.isEmpty {
+            Section("Made Up Of") {
+                ForEach(allEdges, id: \.self) { edge in
+                    let theyOweMe = edge.toId == member.id
+                    LabeledContent("\(name(for: otherPartyId(edge))) \(theyOweMe ? "owes" : "is owed")") {
+                        Text(MoneyFormat.string(minorUnits: edge.amountMinor, currency: edge.currency))
+                            .foregroundStyle(theyOweMe ? .green : .red)
+                    }
+                }
+            }
+        }
+    }
+
+    /// One edge as rows of the same shape (§9 rule 4): the fact first, then
+    /// each available action as its own row — was one row stacking the text,
+    /// a "Pay via UPI" link, and a Remind button.
+    @ViewBuilder
+    private func settleRows(_ edge: SimplifiedSettlement) -> some View {
+        let iPay = edge.fromId == myMemberId
+        let amount = MoneyFormat.string(minorUnits: edge.amountMinor, currency: edge.currency)
+        LabeledContent(iPay ? "You pay \(member.displayName)" : "\(member.displayName) pays you", value: amount)
+        if iPay,
+           let url = UPIPayLink.url(
+               vpa: member.upiVpa,
+               payeeName: member.displayName,
+               amountMinor: edge.amountMinor,
+               currency: edge.currency
+           ) {
+            Link(destination: url) {
+                Label("Pay via UPI", systemImage: "indianrupeesign.circle")
+                    .labelStyle(.row)
+            }
+            .accessibilityLabel("Open a UPI app to pay \(member.displayName) \(amount)")
+        }
+        // Opposite direction of `BalanceAgingScheduler` (`CHECKLIST.md`
+        // "Remind button"): they owe me, so let me nudge them instead of
+        // waiting for the scheduler to nudge me about what I owe.
+        if !iPay {
+            remindButton(edge)
+        }
     }
 
     private func edgeKey(_ edge: SimplifiedSettlement) -> String {
@@ -235,20 +241,23 @@ struct MemberProfileView: View {
             // A real timestamp, not a session-only checkmark (`CHECKLIST.md`
             // D10) — survives closing and reopening this screen, so
             // reopening it can't be used to route around the cooldown.
-            Label("Reminded \(RemindHistory.relativeLabel(since: lastSent))", systemImage: "checkmark.circle")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            LabeledContent {
+                Text(RemindHistory.relativeLabel(since: lastSent))
+            } label: {
+                Label("Reminded", systemImage: "checkmark.circle")
+                    .labelStyle(.row)
+            }
         } else {
             Button {
                 Task { await sendRemind(edge) }
             } label: {
-                if remindingEdge == edge {
-                    ProgressView()
-                } else {
+                HStack {
                     Label("Remind", systemImage: "bell")
+                        .labelStyle(.row)
+                    Spacer()
+                    if remindingEdge == edge { ProgressView() }
                 }
             }
-            .font(.subheadline)
             .disabled(remindingEdge != nil)
         }
     }
