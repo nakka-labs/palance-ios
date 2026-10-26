@@ -32,7 +32,7 @@ struct PreviewGroupHomeView: View {
                 BalanceHeroView(
                     balances: Self.myBalances,
                     accent: GroupColor.color(forId: Self.groupId),
-                    wash: GroupColor.wash(forId: Self.groupId),
+                    tint: GroupColor.tint(forId: Self.groupId),
                     onSettleUp: prompt
                 )
             }

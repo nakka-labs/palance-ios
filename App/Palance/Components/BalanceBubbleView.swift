@@ -70,7 +70,7 @@ struct BalanceBubbleView: View {
                         .foregroundStyle(owed ? color : .white)
                     if circle.radius >= 36 {
                         Text(MoneyFormat.string(minorUnits: abs(n), currency: currency))
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                             .foregroundStyle((owed ? color : .white).opacity(0.9))
                     }
                 }

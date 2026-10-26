@@ -8,12 +8,12 @@ struct BalanceHeroView: View {
     /// The current member's nonzero balances, one per currency.
     let balances: [Balance]
     /// This group's formula accent (`CHECKLIST.md` "Per-group accent color")
-    /// — the card's shadow tint, so the focal card carries the group's
-    /// identity. `nil` falls back to a neutral card.
+    /// — tints the Settle Up button, the card's one accent action.
     var accent: Color?
-    /// The group's two-stop wash for the card background (`DESIGN_BIBLE.md`
-    /// §3 — `GroupColor.wash(forId:)`). `nil` → a flat neutral card.
-    var wash: LinearGradient?
+    /// The group's flat tint for the card fill (`GroupColor.tint(forId:)`),
+    /// so the focal card carries the group's identity. `nil` → a neutral
+    /// `Surface.raised` card.
+    var tint: Color?
     /// The group's state hasn't loaded yet — show a redacted placeholder in
     /// the accent colour rather than a real balance (`CHECKLIST.md`
     /// "Spring/matched-geometry transition").
@@ -28,7 +28,7 @@ struct BalanceHeroView: View {
         VStack(spacing: 8) {
             if isLoading {
                 Text("Your balance")
-                    .font(.title3.weight(.semibold))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -36,8 +36,10 @@ struct BalanceHeroView: View {
                     .font(heroFont)
                     .redacted(reason: .placeholder)
             } else if balances.isEmpty {
+                // The card's whole message here, not a label above a number —
+                // so Body, not Secondary (`DESIGN_BIBLE.md` §9 rule 3).
                 Text("You're all settled up")
-                    .font(.title3.weight(.semibold))
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -48,7 +50,7 @@ struct BalanceHeroView: View {
                 // system text size, since the card's own height used to be
                 // fixed regardless of content).
                 Text(balances.count == 1 ? headline(for: balances[0]) : "Your balance")
-                    .font(.title3.weight(.semibold))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -75,18 +77,14 @@ struct BalanceHeroView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
         .padding(.horizontal, 20)
-        // A raised card, not flat on the canvas — the one clear focal point
-        // on Group Home (`CHECKLIST.md` "Shadow/elevation on hero card"),
-        // washed with this group's two-stop accent gradient (`CHECKLIST.md`
-        // "Per-group accent color" + `DESIGN_BIBLE.md` §3) so it carries the
-        // group's identity with a hint of depth.
-        .background {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Surface.raised)
-                .overlay { if let wash { wash } }
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .shadow(color: (accent ?? .black).opacity(accent == nil ? 0.06 : 0.18), radius: 14, y: 5)
+        // The one focal point on Group Home, and flat (`DESIGN_BIBLE.md` §9
+        // rules 1-2): a solid fill in the group's tint — no gradient wash, no
+        // shadow. It used to be a raised card with a two-stop wash and an
+        // accent glow; the restraint pass retired both.
+        .background(
+            tint ?? Surface.raised,
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
         .padding(.horizontal)
         .padding(.top, 4)
         .accessibilityElement(children: .combine)

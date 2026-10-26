@@ -9,14 +9,6 @@ enum GroupHomeAction: Equatable {
 
 struct GroupHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
-    /// The swipeable hero/bubble `TabView`'s height — scales with text size
-    /// rather than a bare `250` (`CHECKLIST.md` "UI audit, fresh eyes pass"
-    /// — critical finding: at the largest system text size, the fixed
-    /// height left no room for the hero's own labels to wrap, so SwiftUI
-    /// truncated "You are owed" to "You are o…"). `250` is still exactly
-    /// what renders at the default text size; this only grows it when a
-    /// larger size actually needs the room.
-    @ScaledMetric(relativeTo: .body) private var heroTabViewHeight: CGFloat = 250
     private let client: PalanceClient
     private let knownGroups: KnownGroupsStoring
     private let auth: AuthViewModel
@@ -126,10 +118,10 @@ struct GroupHomeView: View {
         return name
     }
 
-    /// Whether the swipeable balance-bubble page is worth showing — only once
+    /// Whether the "Who Owes Whom" row is worth showing — only once
     /// at least two members have a nonzero balance in the dominant currency
     /// (`FEATURE_BACKLOG.md` "Balance bubble/circle-pack view").
-    private func showsBubblePage(_ state: GroupStateResponse) -> Bool {
+    private func showsWhoOwesWhom(_ state: GroupStateResponse) -> Bool {
         let currency = Balances.dominantCurrency(state.balances)
         guard !currency.isEmpty else { return false }
         return Set(state.balances.filter { $0.currency == currency }.map(\.memberId)).count >= 2
@@ -221,10 +213,10 @@ struct GroupHomeView: View {
             // identity card immediately instead of a blank screen (`CHECKLIST.md`
             // "Spring/matched-geometry transition").
             Section {
-                let hero = BalanceHeroView(
+                BalanceHeroView(
                     balances: viewModel.myBalances,
                     accent: GroupColor.color(forId: viewModel.groupId),
-                    wash: GroupColor.wash(forId: viewModel.groupId),
+                    tint: GroupColor.tint(forId: viewModel.groupId),
                     isLoading: viewModel.state == nil,
                     // Promoted onto the card itself, replacing the separate
                     // "Settle Up" row below (`CHECKLIST.md` UX audit [6] step
@@ -232,60 +224,38 @@ struct GroupHomeView: View {
                     // something to settle, same gate the row used to have.
                     onSettleUp: viewModel.myBalances.isEmpty ? nil : { isPresentingSettleUp = true }
                 )
-                let showsBubble = viewModel.state.map(showsBubblePage) ?? false
-                // Insights as its own swipeable page, not a menu item
-                // (`CHECKLIST.md` R13, reopening D12) — independent of the
-                // bubble page's own gate, since Insights is worth showing
-                // any time there's spend history, even a settled-up or
-                // single-balance group. A compact preview card only, not
-                // the raw `InsightsView` (`CHECKLIST.md`, build-16
-                // real-device finding) — the full view's own `List` (pie
-                // chart, category breakdown, granularity picker) fought the
-                // hero `TabView`'s swipe gesture with its own scroll and had
-                // no real room inside the fixed `heroTabViewHeight`; "See
-                // Insights" opens it as a sheet instead.
-                let showsInsights = !(viewModel.state?.expenses.isEmpty ?? true)
-                if let state = viewModel.state, showsBubble || showsInsights {
-                    TabView {
-                        hero
-                        if showsBubble {
-                            // A swipeable page — the balance-bubble view
-                            // (`FEATURE_BACKLOG.md` "Balance bubble/circle-
-                            // pack view").
-                            BalanceBubbleView(members: state.members, balances: state.balances)
-                                .padding(.vertical, 12)
-                        }
-                        if showsInsights {
-                            InsightsPreviewCard(expenses: state.expenses) {
-                                showingInsights = true
-                            }
-                        }
-                    }
-                    .frame(height: heroTabViewHeight)
-                    .tabViewStyle(.page(indexDisplayMode: .always))
-                    // The coach mark alone only ever fires once
-                    // (`CHECKLIST.md` UX audit [11]) — this small chevron
-                    // next to the page dots stays up for good, so the
-                    // swipe is still discoverable long after that one-time
-                    // bubble's been dismissed.
-                    .overlay(alignment: .bottomTrailing) {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 6)
-                            .accessibilityHidden(true)
-                    }
-                    // id left unchanged (`CHECKLIST.md` R13) — a dismissed
-                    // coach mark shouldn't reappear for existing users just
-                    // because the copy grew to cover the new Insights page.
-                    .coachMark(id: "groupHome.bubbleSwipe", text: "Swipe for more — who owes what, and your spending insights.", edge: .bottom)
-                } else {
-                    hero
-                }
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
+
+            // The hero stands alone (`DESIGN_BIBLE.md` §9 rule 1). The bubble
+            // view and Insights used to be pages 2 and 3 of a swipeable hero
+            // carousel — with page dots, a permanent chevron, and a coach mark
+            // all there just to make the swipe discoverable; now they're two
+            // standard rows, each opening its own screen. Same gates as the
+            // pages had.
+            if let state = viewModel.state, showsWhoOwesWhom(state) || !state.expenses.isEmpty {
+                Section {
+                    if showsWhoOwesWhom(state) {
+                        NavigationLink {
+                            WhoOwesWhomView(
+                                members: state.members,
+                                balances: state.balances,
+                                simplifiedSettlements: state.simplifiedSettlements
+                            )
+                        } label: {
+                            Label("Who Owes Whom", systemImage: "circle.grid.cross")
+                                .labelStyle(.row)
+                        }
+                    }
+                    if !state.expenses.isEmpty {
+                        Button { showingInsights = true } label: {
+                            Label("Spending Insights", systemImage: "chart.bar")
+                                .labelStyle(.row)
+                        }
+                    }
+                }
+            }
 
             if let state = viewModel.state {
                 Section("Members") {
@@ -800,10 +770,6 @@ struct GroupHomeView: View {
         .animation(.claimSettle, value: undoBanner)
         .sensoryFeedback(.success, trigger: expenseAddedTrigger)
         .sensoryFeedback(.success, trigger: settlementMarkedTrigger)
-        // At the screen level, not on the row the "groupHome.bubbleSwipe"
-        // coach mark is attached to — a sibling overlay layer draws
-        // unclipped by that row's own bounds (`CoachMarkAnchorKey`).
-        .coachMarkOverlayHost()
     }
 
     private var deleteTitle: String {

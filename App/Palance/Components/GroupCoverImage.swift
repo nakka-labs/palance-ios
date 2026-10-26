@@ -4,7 +4,7 @@ import PalanceKit
 /// A group's cover photo (`CHECKLIST.md` "Group cover image"), resolved through
 /// the shared `AvatarImageLoader`. Fills its frame (`scaledToFill`); the caller
 /// sets the frame + clip shape. While loading or if the fetch fails it shows a
-/// soft wash of the group's accent colour, so there's never a jarring gap — and
+/// flat tint of the group's accent colour, so there's never a jarring gap — and
 /// callers only place this when `coverKey != nil` anyway.
 struct GroupCoverImage: View {
     let groupId: String
@@ -18,7 +18,7 @@ struct GroupCoverImage: View {
 
     var body: some View {
         ZStack {
-            GroupColor.wash(forId: groupId)
+            GroupColor.tint(forId: groupId)
             if let image {
                 Image(uiImage: image)
                     .resizable()
