@@ -23,6 +23,11 @@ enum DisplayWeight {
 }
 
 extension Font {
+    /// The Hero type role (`DESIGN_BIBLE.md` §9 rule 3) — the one focal number
+    /// on a screen: SF Rounded 28 bold, tabular. The Group Home balance and
+    /// the amount being entered on Add Expense / Settle Up.
+    static let hero: Font = .system(size: 28, weight: .bold, design: .rounded).monospacedDigit()
+
     /// Display face at a fixed point size that still scales with Dynamic Type,
     /// anchored to `textStyle` for the scaling curve. Tabular figures
     /// (`DESIGN_BIBLE.md` §1) — a value that updates in place doesn't jiggle

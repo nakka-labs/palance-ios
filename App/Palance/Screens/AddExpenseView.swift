@@ -364,7 +364,7 @@ struct AddExpenseView: View {
             // (`DESIGN_BIBLE.md`'s "single highest-leverage move",
             // `FEATURE_BACKLOG.md` "Amount-entry typography") — the amount
             // is the most important thing on this screen.
-            .font(.system(.title2, design: .rounded).weight(.semibold))
+            .font(.hero)
             .focused($amountFocused)
             .onChange(of: amountFocused) { _, focused in
                 // Resolve "12 + 8" to "20.00" once the field loses focus,
@@ -653,7 +653,7 @@ struct AddExpenseView: View {
     @ViewBuilder
     private var receiptsRows: some View {
         Group {
-            Text("Receipts").font(.caption).foregroundStyle(.secondary)
+            Text("Receipts").font(.footnote).foregroundStyle(.secondary)
             if !attachmentKeys.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -680,6 +680,7 @@ struct AddExpenseView: View {
             ) {
                 HStack {
                     Label(attachmentKeys.isEmpty ? "Add Receipt" : "Add Another", systemImage: "paperclip")
+                        .labelStyle(.row)
                     Spacer()
                     if isUploadingReceipt { ProgressView() }
                 }
@@ -694,7 +695,7 @@ struct AddExpenseView: View {
     @ViewBuilder
     private var commentsRows: some View {
         Group {
-            Text("Comments").font(.caption).foregroundStyle(.secondary)
+            Text("Comments").font(.footnote).foregroundStyle(.secondary)
             if isLoadingComments, comments.isEmpty {
                 HStack { ProgressView(); Text("Loading…").foregroundStyle(.secondary) }
             } else {
@@ -731,8 +732,8 @@ struct AddExpenseView: View {
         HStack(alignment: .top, spacing: 10) {
             MemberAvatar(name: author?.displayName ?? "Someone", avatarKey: author?.avatarKey, size: 28)
             VStack(alignment: .leading, spacing: 2) {
-                Text(author?.displayName ?? "Someone").font(.subheadline.weight(.medium))
-                Text(comment.text).font(.subheadline)
+                Text(author?.displayName ?? "Someone").font(.subheadline).foregroundStyle(.secondary)
+                Text(comment.text)
             }
         }
         .swipeActions {
@@ -1044,7 +1045,7 @@ struct AddExpenseView: View {
                     Text(member.displayName)
                     if w > 0, shareTotal > 0, let owed {
                         Text("\(w)/\(shareTotal) · \(MoneyFormat.string(minorUnits: owed, currency: currency))")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }

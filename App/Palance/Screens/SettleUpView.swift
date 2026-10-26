@@ -219,27 +219,24 @@ struct SettleUpView: View {
     /// (a recurring pattern in this codebase; see `GroupSettingsView`'s
     /// `joinCodeSection`).
     private var upiNudgeSection: some View {
+        // A row-standard row with its explanation in the footer (§9 rules 4
+        // and 7) — was an accent-tinted icon beside a semibold title and a
+        // caption.
         Section {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "indianrupeesign.circle")
-                    .foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Get paid via UPI")
-                        .font(.subheadline.weight(.semibold))
-                    Text("Add your UPI ID under Group Settings → My UPI ID, so whoever pays you here gets a one-tap link.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            HStack {
+                Label("Get Paid via UPI", systemImage: "indianrupeesign.circle")
+                    .labelStyle(.row)
                 Spacer(minLength: 0)
                 Button(action: dismissUpiNudge) {
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss")
             }
-            .padding(.vertical, 2)
+        } footer: {
+            Text("Add your UPI ID under Group Settings → My UPI ID, so whoever pays you here gets a one-tap link.")
         }
     }
 
@@ -383,21 +380,23 @@ private struct ConfirmSettlementView: View {
                 HStack {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
-                        .font(.title2.weight(.semibold))
+                        .font(.hero)
                     Text(settlement.currency).foregroundStyle(.secondary)
                 }
-                if let amountMinor, !isFullAmount {
-                    let suggested = MoneyFormat.string(minorUnits: settlement.amountMinor, currency: settlement.currency)
-                    Text(
-                        amountMinor < settlement.amountMinor
-                            ? "Partial payment — the suggested amount was \(suggested)."
-                            : "More than the suggested \(suggested)."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
             } footer: {
-                Text("Palance just records this as settled — it doesn't move any money.")
+                // The partial/over hint lives in the footer with the standing
+                // note, not as a caption row under the field (§9 rule 7).
+                VStack(alignment: .leading, spacing: 8) {
+                    if let amountMinor, !isFullAmount {
+                        let suggested = MoneyFormat.string(minorUnits: settlement.amountMinor, currency: settlement.currency)
+                        Text(
+                            amountMinor < settlement.amountMinor
+                                ? "Partial payment — the suggested amount was \(suggested)."
+                                : "More than the suggested \(suggested)."
+                        )
+                    }
+                    Text("Palance just records this as settled — it doesn't move any money.")
+                }
             }
         }
         .navigationTitle("Mark as Paid")

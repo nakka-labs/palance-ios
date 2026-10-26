@@ -94,9 +94,7 @@ struct BalanceHeroView: View {
     /// Rounded rather than the display face (Space Grotesk's geometric digits
     /// and cramped ₹ read a touch calculator-ish at this size — owner call);
     /// still tabular so it doesn't jiggle as balances change.
-    private var heroFont: Font {
-        .system(size: 28, weight: .bold, design: .rounded).monospacedDigit()
-    }
+    private var heroFont: Font { .hero }
 
     private func headline(for balance: Balance) -> String {
         balance.netMinor > 0 ? "You are owed" : "You owe"

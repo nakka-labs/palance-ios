@@ -67,7 +67,7 @@ struct EditSettlementView: View {
                     ForEach(members) { member in Text(member.displayName).tag(member.id) }
                 }
             }
-            Section("Amount") {
+            Section {
                 HStack {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
@@ -76,9 +76,13 @@ struct EditSettlementView: View {
                     }
                     .labelsHidden()
                 }
+            } header: {
+                Text("Amount")
+            } footer: {
+                // A validation error, so red (§9 rule 6) — in the footer, not
+                // a caption row (rule 7).
                 if fromId == toId {
-                    Text("Paid by and paid to must be different people.")
-                        .font(.caption).foregroundStyle(.red)
+                    Text("Paid by and paid to must be different people.").foregroundStyle(.red)
                 }
             }
             if let errorMessage {
