@@ -97,9 +97,10 @@ text, no photoreal, no drop shadow/3D bevel. One deliberate, portfolio-
 wide exception: a tasteful two-stop gradient using the app's own hue
 (§2) at two points on the same lightness/chroma formula — never a second,
 unrelated color — scoped to the app icon itself and to in-app hero
-moments (a completed-timer state, a hit-streak celebration, Palance's
-balance hero card), never to routine UI chrome, where flat color stays
-the default. What varies per app is the **motif** (what the shape is) and
+moments that leave the app as an image (Palance's shareable recap
+card), never to in-app UI — flat color everywhere on screen (§9 rule 1,
+narrowed 2026-10-26; this used to also cover Palance's balance hero
+card). What varies per app is the **motif** (what the shape is) and
 whether that app leans on the gradient or stays fully flat — never the
 construction style itself, and never more than the one gradient per icon.
 
@@ -261,9 +262,10 @@ notice whether two accent blues are the exact same hex.
 
 ## 9. Restraint — how a screen is built
 
-> **DRAFT, 2026-10-26 — pending owner approval.** Nothing in this section
-> is applied to any screen until it's approved (`CHECKLIST.md` "Ground-up
-> rename" → visual identity pass). Written against the current build's
+> **Approved by the owner 2026-10-26** (all four open calls taken as
+> drafted: flat hero, carousel → rows, plain destructive rows, profile
+> cover band). Applied screen by screen per `CHECKLIST.md` "Ground-up
+> rename" → visual identity pass — exemplar batch first. Written against the current build's
 > Group Home, Settings, and Member Profile, with a competitor's flat,
 > low-density screens as the reference for *restraint* — not for layout,
 > not for color, and not copied.
@@ -280,9 +282,9 @@ one thing that's visually louder than a list row (Group Home: the
 balance; Member Profile: the person; Settings: nothing). That focal
 surface is a flat fill — `Surface.raised` or the group's accent at a
 low-chroma band of the §2 formula — with no gradient wash, no pattern,
-and no shadow. **On approval this narrows §3's gradient exception** to
-the app icon and the shareable recap card only (an exported image, not
-in-app chrome); the Group Home balance hero loses its wash and glow.
+and no shadow. This narrows §3's gradient exception to the app icon and
+the shareable recap card only (an exported image, not in-app chrome);
+the Group Home balance hero loses its wash and glow.
 
 **2. Elevation only for things that float.** Shadows belong to what
 genuinely sits above the content — a toast, a floating button, a sheet.
@@ -346,7 +348,7 @@ banner.
 | Screen | Today | Under §9 |
 |---|---|---|
 | Group Home hero (`BalanceHeroView`) | raised card, group gradient wash, accent glow shadow, `.title3` semibold label | flat fill, no shadow; label drops to Secondary; Settle Up stays as the one accent action inside it |
-| Group Home hero carousel | a 3-page swipe `TabView` (hero → bubbles → Insights preview card) with page dots, a permanent chevron, and a coach mark to make the swipe discoverable | **open question for the owner** — under 1 the hero should stand alone: bubbles and Insights become two row-standard rows directly below it ("Who Owes Whom", "Spending Insights"), each opening its own screen/sheet, and the dots/chevron/coach mark go. The alternative is keeping the carousel but flattening each page |
+| Group Home hero carousel | a 3-page swipe `TabView` (hero → bubbles → Insights preview card) with page dots, a permanent chevron, and a coach mark to make the swipe discoverable | the hero stands alone; bubbles and Insights become two row-standard rows directly below it ("Who Owes Whom", "Spending Insights"), each opening its own screen/sheet; the page dots, chevron, and coach mark go |
 | Balance bubbles (`BalanceBubbleView`) | stays — it's data, not decoration | money labels follow 3 (no 9pt text); only member colors on the circles |
 | Settings | mixed rows: an icon'd status line, an avatar row, blue text buttons, a Danger Zone header with a caption row | your profile as a row at the top (avatar + name → your profile screen); every other row follows 4; Delete Account per 8 |
 | Member Profile | 56pt avatar + name in a header row, colored balance section | cover band + Title per 9; balance as key-value rows (amounts keep green/red per 6) |

@@ -193,7 +193,7 @@ Note: ClanTab already has its own unrelated `SettleUpView.swift` (the
 settle-up-a-debt flow) — don't let the naming coincidence cause confusion
 in commits/docs.**
 
-- [ ] **Design principles first, screens second.** Before touching any
+- [x] **Design principles first, screens second.** Before touching any
       SwiftUI view, revise `DESIGN_BIBLE.md` with a "restraint" section
       codifying what actually reads cleaner in the reference screens:
       flat solid hero color as the default (current gradient/pattern
@@ -203,6 +203,11 @@ in commits/docs.**
       photo + flat info rows, no card chrome). This is a judgment call,
       not a mechanical one — Owner reviews and approves the revised
       `DESIGN_BIBLE.md` section before any screen is touched.
+      **Done 2026-10-26:** `DESIGN_BIBLE.md` §9 "Restraint" drafted and
+      owner-approved, all four open calls as recommended — flat hero
+      (§3's gradient exception narrowed to icon + recap image), the
+      hero carousel replaced by two rows, `DangerZoneRow` retired for a
+      plain red-label row, and a cover-band profile layout.
 - [ ] **New app icon + wordmark.** `DESIGN_BIBLE.md`'s icon-generation
       prompt is templated on the app name directly ("a flat vector app
       icon for '[App Name]'...") — the current icon was generated for
