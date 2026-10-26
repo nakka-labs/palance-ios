@@ -69,13 +69,13 @@ struct ActivityDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title).font(.headline)
                     Text(item.date.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
             .padding(.vertical, 4)
-            Text(amount).font(.largeTitle.weight(.semibold))
+            Text(amount).font(.hero)
         }
         .listRowBackground(Color.clear)
     }
@@ -139,10 +139,10 @@ struct ActivityDetailView: View {
             Section("Comments") {
                 ForEach(comments) { comment in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(name(for: comment.authorMemberId)).font(.subheadline.weight(.medium))
+                        Text(name(for: comment.authorMemberId)).font(.subheadline).foregroundStyle(.secondary)
                         Text(comment.text)
                         Text(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption2)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 2)

@@ -193,7 +193,7 @@ struct GroupHomeView: View {
                         onDismiss: { auth.dismissSyncNudge() }
                     )
                     if let message = auth.errorMessage ?? nudgeError {
-                        Text(message).font(.caption).foregroundStyle(.red)
+                        Text(message).font(.footnote).foregroundStyle(.red)
                     }
                 }
             }
@@ -340,7 +340,7 @@ struct GroupHomeView: View {
                         }
                     }
                     if let mutationError {
-                        Text(mutationError).font(.caption).foregroundStyle(.red)
+                        Text(mutationError).font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
                     HStack {
@@ -348,7 +348,7 @@ struct GroupHomeView: View {
                         if filter.isActive {
                             Spacer()
                             Button("Clear Filters") { filter = ActivityFilter() }
-                                .font(.caption)
+                                .font(.footnote)
                                 .textCase(nil)
                         }
                     }

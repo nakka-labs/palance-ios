@@ -243,7 +243,7 @@ in commits/docs.**
       this is happening inside the same window as a bundle-ID/backend
       rename — isolate the visual risk from the infra risk.
       **Approved 2026-10-26** — owner go-ahead for the remaining screens.
-- [ ] **Remaining screens, once approved** — same restraint principles,
+- [x] **Remaining screens, once approved** — same restraint principles,
       applied as separate commits per screen or logical group so
       `make check` and the eventual TestFlight pass can isolate a
       regression to one screen, not one giant diff:
@@ -262,6 +262,23 @@ in commits/docs.**
       `ReportContentView.swift`, `OnboardingView.swift`,
       `StartView.swift`, `WhatsNewView.swift`,
       `PreviewGroupHomeView.swift`).
+      **Done 2026-10-26**, four commits by group, `make check` green after
+      each: navigation chrome (Danger Zone retired — Archive an ordinary
+      row, Regenerate/Leave plain red rows; Group Info cover band;
+      `.destructiveRow`), transaction flows (`Font.hero` for entered
+      amounts; captions → footers; UPI nudge a row), groups/people
+      (group balance as a trailing value; Friend Detail cover band), and
+      the rest (nudge cards/dashboard/activity/onboarding/start: type
+      roles, Insights bar gradient → flat, onboarding shadow removed).
+      Deliberately left: `RecapCard`/`GroupReportView` (exported
+      image/PDF — §3 still allows them), chart labels/tooltips in
+      Insights/My Spending (data viz), icon-glyph sizes in badges and
+      thumbnails, the coach-mark shadow (it floats). `PreviewGroupHomeView`,
+      `WhatsNewView`, `ImportCSVView`, `ReportContentView`,
+      `JoinGroupView`, `ClaimMemberView`, `FriendsView`,
+      `NewRecurringReminderView`, `RecentlyDeletedView`, the two pickers,
+      and `RootView` already conformed. Not yet seen on a device — folds
+      into the TestFlight pass below.
 - [ ] **Full on-device TestFlight pass covers the redesign too** — fold
       into the "new TestFlight build 1" step below rather than a separate
       pass; a UI-only regression (tap targets, dark mode, dynamic type)

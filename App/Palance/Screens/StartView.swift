@@ -174,7 +174,7 @@ struct StartView: View {
         Button(action: onOpenMySpending) {
             HStack {
                 Label("My Spending", systemImage: "chart.pie")
-                    .font(.subheadline.weight(.medium))
+                    .labelStyle(.row)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -245,7 +245,7 @@ struct StartView: View {
                 .frame(width: 56, height: 56)
                 .foregroundStyle(.secondary)
             Text("No groups yet")
-                .font(.title2.bold())
+                .font(.title2.weight(.semibold))
             Text("Start one for a trip or a shared house — or join one with a code someone sent you.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -289,7 +289,7 @@ struct StartView: View {
 
             if let message = authError ?? sheetError {
                 Text(message)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }

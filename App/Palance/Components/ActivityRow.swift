@@ -183,7 +183,7 @@ struct ActivityRow: View {
                     }
                 }
             }
-            .font(.caption)
+            .font(.subheadline)
             .foregroundStyle(.secondary)
         } else {
             HStack(spacing: 4) {
@@ -197,7 +197,7 @@ struct ActivityRow: View {
                         .accessibilityLabel("Has a receipt")
                 }
             }
-            .font(.caption)
+            .font(.subheadline)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }

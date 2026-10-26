@@ -18,11 +18,11 @@ struct WelcomeBackCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     Label("Welcome back", systemImage: "hand.wave.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .labelStyle(.row)
                     Spacer()
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
-                            .font(.caption.weight(.bold))
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                             .padding(6)
                             .contentShape(Rectangle())
@@ -35,7 +35,7 @@ struct WelcomeBackCard: View {
                     .foregroundStyle(.secondary)
                 ForEach(totals, id: \.currency) { total in
                     Text(DashboardTotalsHeader.line(for: total))
-                        .font(.callout.weight(.semibold))
+                        .font(.body)
                         .foregroundStyle(total.netMinor > 0 ? .green : .red)
                 }
             }

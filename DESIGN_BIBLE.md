@@ -328,7 +328,9 @@ caption beneath.
 
 **7. One fact per row; explanations go in footers.** A row never carries
 a stacked caption. If a row needs explaining, the explanation is the
-section's footer, written once.
+section's footer, written once. Feed rows (an activity item, a
+comment, a reminder) are content, not menu rows: they may carry one
+Secondary line of *who/when/what* — never an explanation.
 
 **8. Destructive actions: last, plain, red label.** The final section of
 the screen, a single row whose label is red, with the consequence in

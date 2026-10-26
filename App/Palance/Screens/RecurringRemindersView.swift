@@ -62,7 +62,7 @@ struct RecurringRemindersView: View {
             if notificationsDenied {
                 Section {
                     Text("Notifications are off for Palance, so reminders won't alert you — this list still works, you'll just need to check it yourself. Turn notifications on in Settings if you'd like the alert.")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -121,7 +121,7 @@ struct RecurringRemindersView: View {
                         Text("· needs updating").foregroundStyle(.orange)
                     }
                 }
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
             Spacer()

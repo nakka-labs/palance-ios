@@ -247,14 +247,9 @@ struct InsightsView: View {
                 x: .value("Period", bucket.start, unit: chartUnit),
                 y: .value("Spent", Double(bucket.totalMinor) / 100)
             )
-            // Native gradient fill (`CHECKLIST.md` "gradient fills") — the
-            // accent from full at the top fading down.
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [Color.accentColor, Color.accentColor.opacity(0.4)],
-                    startPoint: .top, endPoint: .bottom
-                )
-            )
+            // Flat accent (`DESIGN_BIBLE.md` §9 rule 1) — was a top-to-bottom
+            // gradient fade.
+            .foregroundStyle(Color.accentColor)
             .cornerRadius(5)
             // Dim the other bars while scrubbing so the touched one stands out.
             .opacity(scrubbedBucket == nil || scrubbedBucket?.id == bucket.id ? 1 : 0.3)

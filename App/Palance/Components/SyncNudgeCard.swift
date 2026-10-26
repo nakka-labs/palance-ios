@@ -12,11 +12,11 @@ struct SyncNudgeCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Keep your groups", systemImage: "icloud")
-                    .font(.subheadline.weight(.semibold))
+                    .labelStyle(.row)
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(6)
                         .contentShape(Rectangle())

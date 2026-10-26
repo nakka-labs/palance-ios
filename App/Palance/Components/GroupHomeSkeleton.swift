@@ -31,7 +31,7 @@ enum GroupHomeSkeleton {
                 Circle().fill(.secondary.opacity(0.2)).frame(width: 32, height: 32)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Loading expense title")
-                    Text("Category · Date").font(.caption).foregroundStyle(.secondary)
+                    Text("Category · Date").font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text("₹000").lineLimit(1)

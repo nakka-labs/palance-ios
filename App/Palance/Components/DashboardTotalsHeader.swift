@@ -15,12 +15,13 @@ struct DashboardTotalsHeader: View {
         if !totals.isEmpty {
             VStack(alignment: .leading, spacing: 3) {
                 Text("YOUR BALANCE")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 3)
                 ForEach(totals, id: \.currency) { total in
                     Text(Self.line(for: total))
-                        .font(.callout.weight(.semibold))
+                        // The dashboard's focal number (§9 rule 3's Hero role).
+                        .font(.hero)
                         .foregroundStyle(total.netMinor > 0 ? .green : .red)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

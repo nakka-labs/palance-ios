@@ -16,11 +16,11 @@ struct BackupNudgeCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Back up your data", systemImage: "arrow.down.doc")
-                    .font(.subheadline.weight(.semibold))
+                    .labelStyle(.row)
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(6)
                         .contentShape(Rectangle())
@@ -35,8 +35,10 @@ struct BackupNudgeCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let csvURL {
-                ShareLink("Export CSV", item: csvURL)
-                    .font(.subheadline.weight(.medium))
+                ShareLink(item: csvURL) {
+                    Label("Export CSV", systemImage: "square.and.arrow.up")
+                        .labelStyle(.row)
+                }
             }
         }
         .padding(.vertical, 4)

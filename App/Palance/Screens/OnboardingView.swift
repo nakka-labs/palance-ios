@@ -85,7 +85,6 @@ struct OnboardingView: View {
         .background {
             Rectangle()
                 .fill(Surface.canvas)
-                .overlay(Color.accentColor.opacity(0.04))
                 .ignoresSafeArea()
         }
     }
@@ -100,14 +99,13 @@ struct OnboardingView: View {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.08))
                 }
-                .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
                 .padding(.horizontal, 40)
                 .frame(maxHeight: 340)
                 .accessibilityHidden(true)
 
             VStack(spacing: 12) {
                 Text(item.title)
-                    .font(.title.bold())
+                    .font(.title2.weight(.semibold))
                     .multilineTextAlignment(.center)
                 Text(item.body)
                     .font(.body)

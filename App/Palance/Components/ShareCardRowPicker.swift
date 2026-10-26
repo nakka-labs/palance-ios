@@ -32,7 +32,7 @@ struct ShareCardRowPicker: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(row.title)
-                                Text(row.subtitle).font(.caption).foregroundStyle(.secondary)
+                                Text(row.subtitle).font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
                             if selection.contains(row.id) {

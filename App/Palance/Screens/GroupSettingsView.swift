@@ -329,7 +329,7 @@ struct GroupSettingsView: View {
                     }
                 }
                 Text(draftPercentTotal == 100 ? "Adds up to 100%." : "\(draftPercentTotal)% assigned")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(draftPercentTotal == 100 ? Color.secondary : Color.red)
                 HStack {
                     Button("Split Equally", role: .destructive) { Task { await saveDefaultSplit(nil) } }
