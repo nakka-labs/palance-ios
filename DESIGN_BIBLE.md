@@ -320,7 +320,10 @@ caption beneath.
 - The accent appears on at most: the one primary action on the screen,
   selected/active states, and navigation tint.
 - Green/red appear only on money amounts — never on labels, icons, or
-  headers ("Danger Zone" doesn't get a red header; see 8).
+  headers ("Danger Zone" doesn't get a red header; see 8). Two
+  exceptions, both meaning rather than decoration: a destructive
+  action's label (8, `RowLabelStyle`'s `.destructiveRow`) and error
+  messages.
 - Member identity colors (§2) appear only on avatars/initials.
 
 **7. One fact per row; explanations go in footers.** A row never carries

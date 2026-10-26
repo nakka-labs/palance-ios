@@ -237,11 +237,12 @@ in commits/docs.**
       Net + "Made Up Of" key-value sections, settle-up actions as rows).
       `DangerZoneRow` is still used by `GroupSettingsView` — retire it
       there in the remaining-screens pass.
-- [ ] **Owner approval gate.** Do not proceed past the exemplar batch
+- [x] **Owner approval gate.** Do not proceed past the exemplar batch
       without an explicit go-ahead on a real device. A redesign applied
       to all ~28 screens on a wrong direction is expensive rework, and
       this is happening inside the same window as a bundle-ID/backend
       rename — isolate the visual risk from the infra risk.
+      **Approved 2026-10-26** — owner go-ahead for the remaining screens.
 - [ ] **Remaining screens, once approved** — same restraint principles,
       applied as separate commits per screen or logical group so
       `make check` and the eventual TestFlight pass can isolate a

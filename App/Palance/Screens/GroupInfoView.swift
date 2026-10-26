@@ -51,62 +51,71 @@ struct GroupInfoView: View {
         }
     }
 
+    // Join code as a key-value row and every action as a row-standard row
+    // (`DESIGN_BIBLE.md` §9 rules 4-5).
     private var joinCodeSection: some View {
         Section {
-            HStack {
-                Text(joinCode)
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
-                Spacer()
-                Button {
-                    UIPasteboard.general.string = joinCode
-                } label: {
-                    Image(systemName: "doc.on.doc")
+            LabeledContent("Join Code") {
+                HStack(spacing: 12) {
+                    Text(joinCode)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button {
+                        UIPasteboard.general.string = joinCode
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Copy Join Code")
                 }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Copy Join Code")
             }
-            ShareLink("Share Invite Link", item: AppConfig.groupShareURL(groupId: groupId, accessToken: accessToken))
-        } header: {
-            Text("Join Code")
+            ShareLink(item: AppConfig.groupShareURL(groupId: groupId, accessToken: accessToken)) {
+                Label("Share Invite Link", systemImage: "square.and.arrow.up")
+                    .labelStyle(.row)
+            }
         } footer: {
             Text("Anyone with this code can join the group from \"Join with a Code.\"")
         }
     }
 
+    /// The cover itself as a full-width band (same shape as a profile's
+    /// `ProfileCoverBand`, §9 rule 9), then its actions as rows — was a
+    /// 72×48 thumbnail beside a text button.
     @ViewBuilder
     private var coverImageSection: some View {
         Section {
-            HStack(spacing: 12) {
-                Group {
-                    if coverKey != nil {
-                        GroupCoverImage(groupId: groupId, coverKey: coverImageKey, accessToken: accessToken)
-                    } else {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Surface.well)
-                            .overlay(Image(systemName: "photo").foregroundStyle(.tertiary))
-                    }
+            Group {
+                if coverKey != nil {
+                    GroupCoverImage(groupId: groupId, coverKey: coverImageKey, accessToken: accessToken)
+                } else {
+                    GroupColor.tint(forId: groupId)
+                        .overlay(Image(systemName: "photo").font(.largeTitle).foregroundStyle(.tertiary))
                 }
-                .frame(width: 72, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                PhotosPicker(
-                    selection: $pickedCover,
-                    matching: .images,
-                    preferredItemEncoding: .compatible,
-                    photoLibrary: .shared()
-                ) {
-                    Text(coverKey == nil ? "Add Cover Image" : "Change Cover")
-                }
-                .disabled(isSavingCover)
-
-                Spacer()
-                if isSavingCover { ProgressView() }
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .clipped()
+            .listRowInsets(EdgeInsets())
+
+            PhotosPicker(
+                selection: $pickedCover,
+                matching: .images,
+                preferredItemEncoding: .compatible,
+                photoLibrary: .shared()
+            ) {
+                HStack {
+                    Label(coverKey == nil ? "Add Cover Image" : "Change Cover", systemImage: "photo")
+                        .labelStyle(.row)
+                    Spacer()
+                    if isSavingCover { ProgressView() }
+                }
+            }
+            .disabled(isSavingCover)
 
             if coverKey != nil {
-                Button("Remove Cover", role: .destructive) {
-                    Task { await removeCover() }
+                Button { Task { await removeCover() } } label: {
+                    Label("Remove Cover", systemImage: "trash")
+                        .labelStyle(.destructiveRow)
                 }
                 .disabled(isSavingCover)
             }

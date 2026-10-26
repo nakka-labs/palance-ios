@@ -142,6 +142,7 @@ struct GroupSettingsView: View {
                     )
                 } label: {
                     Label("Group Info", systemImage: "info.circle")
+                        .labelStyle(.row)
                 }
             }
 
@@ -203,7 +204,10 @@ struct GroupSettingsView: View {
             }
 
             Section {
-                Button("Report a Problem") { reportingTarget = (.group, state.group.name) }
+                Button { reportingTarget = (.group, state.group.name) } label: {
+                    Label("Report a Problem", systemImage: "flag")
+                        .labelStyle(.row)
+                }
             } footer: {
                 // Used to read "Apple requires this for apps with shared
                 // user-generated content" — a compliance rationale, not a
@@ -213,13 +217,13 @@ struct GroupSettingsView: View {
                 Text("Report this group if its name or content is inappropriate.")
             }
 
-            // Regenerate/Archive/Leave used to be three plain Sections, the
-            // same visual weight as "Add Someone" above — a routine rename
-            // and an irreversible link rotation read identically
-            // (`CHECKLIST.md` UX audit [20]). One red-tinted "Danger Zone"
-            // groups them instead, each row carrying its own warning icon
-            // and consequence line.
-            dangerZoneSection
+            // Archive is reversible, so it's an ordinary row; Regenerate and
+            // Leave can't be undone, so they close the screen as plain red
+            // rows (`DESIGN_BIBLE.md` §9 rule 8). UX audit [20] gave all
+            // three a red "Danger Zone" with a caption under each row; the
+            // red labels and the footers carry that weight now.
+            archiveSection
+            irreversibleSection
         }
         .materialSheetContent()
         .navigationTitle("Group Settings")
@@ -348,43 +352,49 @@ struct GroupSettingsView: View {
         }
     }
 
-    /// Regenerate/Archive/Leave, one red-tinted section (`CHECKLIST.md` UX
-    /// audit [20]) — pulled out of `body` for the same type-checker-
-    /// complexity reason as `defaultSplitSection` (and `GroupInfoView`'s own
-    /// sections, since R3 moved those out to their own screen).
-    private var dangerZoneSection: some View {
+    /// Pulled out of `body` for the same type-checker-complexity reason as
+    /// `defaultSplitSection`.
+    private var archiveSection: some View {
         Section {
-            DangerZoneRow(
-                icon: "arrow.triangle.2.circlepath",
-                title: "Regenerate Link",
-                caption: "Makes a fresh invite link and code; the old ones stop working immediately, for anyone still holding them. Not undoable.",
-                isLoading: isRegenerating,
-                action: { confirmingRegenerate = true }
-            )
-            DangerZoneRow(
-                icon: "archivebox",
-                title: state.group.archivedAt == nil ? "Archive Group" : "Unarchive Group",
-                caption: state.group.archivedAt == nil
-                    ? "Hides the group from everyone's list once the trip's over. Nothing is deleted, and any member can bring it back."
-                    : "This group is archived. Unarchive it to move it back into everyone's list.",
-                isLoading: isArchiving,
-                action: { Task { await setArchived(state.group.archivedAt == nil) } }
-            )
-            DangerZoneRow(
-                icon: "rectangle.portrait.and.arrow.right",
-                title: "Leave This Group",
-                caption: "Removes this group from this device. Your expenses stay for everyone else.",
-                isLoading: false,
-                action: { confirmingLeave = true }
-            )
-        } header: {
-            Text("Danger Zone").foregroundStyle(.red)
+            Button { Task { await setArchived(state.group.archivedAt == nil) } } label: {
+                HStack {
+                    Label(state.group.archivedAt == nil ? "Archive Group" : "Unarchive Group", systemImage: "archivebox")
+                        .labelStyle(.row)
+                    Spacer()
+                    if isArchiving { ProgressView() }
+                }
+            }
+            .disabled(isArchiving)
+        } footer: {
+            Text(state.group.archivedAt == nil
+                ? "Hides the group from everyone's list once the trip's over. Nothing is deleted, and any member can bring it back."
+                : "This group is archived. Unarchive it to move it back into everyone's list.")
         }
     }
 
-    /// One row of the "Danger Zone" section (`CHECKLIST.md` UX audit [20]) —
-    /// a leading warning icon plus a title/consequence pair, replacing what
-    /// used to be three separate `Section`s each with their own footer.
+    /// Regenerate + Leave — last, plain red rows, consequences in the footer
+    /// (`DESIGN_BIBLE.md` §9 rule 8); the confirmation dialogs carry the
+    /// real friction.
+    private var irreversibleSection: some View {
+        Section {
+            Button { confirmingRegenerate = true } label: {
+                HStack {
+                    Label("Regenerate Link", systemImage: "arrow.triangle.2.circlepath")
+                        .labelStyle(.destructiveRow)
+                    Spacer()
+                    if isRegenerating { ProgressView() }
+                }
+            }
+            .disabled(isRegenerating)
+            Button { confirmingLeave = true } label: {
+                Label("Leave This Group", systemImage: "rectangle.portrait.and.arrow.right")
+                    .labelStyle(.destructiveRow)
+            }
+        } footer: {
+            Text("Regenerating makes a fresh invite link and code — the old ones stop working immediately, for anyone still holding them. Leaving removes this group from this device; your expenses stay for everyone else.")
+        }
+    }
+
     private var currentDefaultSplitLabel: String {
         guard let split = state.group.defaultSplit else { return "Split equally" }
         let name: (String) -> String = { id in
@@ -551,7 +561,7 @@ struct GroupSettingsView: View {
                     Button { mergingDuplicate = member } label: {
                         Image(systemName: "arrow.triangle.merge")
                             .font(.caption)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Merge \(member.displayName) into another member")

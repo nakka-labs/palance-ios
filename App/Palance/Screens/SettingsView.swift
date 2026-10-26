@@ -40,7 +40,7 @@ struct SettingsView: View {
     // every other row follows the row standard; the version is the last
     // section's footer rather than a fact row among menu rows; Delete Account
     // is a plain red row, last, with its consequence in the footer (it used
-    // to be a `DangerZoneRow` under a red "Danger Zone" header).
+    // to be a red-captioned row under a red "Danger Zone" header).
     var body: some View {
         Form {
             accountSections
@@ -144,8 +144,7 @@ struct SettingsView: View {
                 Button { confirmingDelete = true } label: {
                     HStack {
                         Label("Delete Account", systemImage: "person.crop.circle.badge.xmark")
-                            .labelStyle(.row)
-                            .foregroundStyle(.red)
+                            .labelStyle(.destructiveRow)
                         Spacer()
                         if auth.isBusy { ProgressView() }
                     }

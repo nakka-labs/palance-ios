@@ -6,6 +6,10 @@ import SwiftUI
 /// list regardless of each glyph's own width. A `NavigationLink` adds the
 /// chevron itself; a trailing value goes in the row, not in this style.
 struct RowLabelStyle: LabelStyle {
+    /// A destructive action's row (§9 rule 8): red label, icon still
+    /// `.secondary`. The title's color is set here rather than by the caller
+    /// because a `Button` would otherwise tint it with the accent.
+    var isDestructive = false
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
 
     func makeBody(configuration: Configuration) -> some View {
@@ -15,7 +19,7 @@ struct RowLabelStyle: LabelStyle {
                 .symbolRenderingMode(.monochrome)
                 .frame(width: iconWidth)
             configuration.title
-                .foregroundStyle(.primary)
+                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
         }
     }
 }
@@ -23,4 +27,6 @@ struct RowLabelStyle: LabelStyle {
 extension LabelStyle where Self == RowLabelStyle {
     /// `Label("Spending Insights", systemImage: "chart.bar").labelStyle(.row)`
     static var row: RowLabelStyle { RowLabelStyle() }
+    /// `Label("Delete Account", systemImage: "…").labelStyle(.destructiveRow)`
+    static var destructiveRow: RowLabelStyle { RowLabelStyle(isDestructive: true) }
 }
