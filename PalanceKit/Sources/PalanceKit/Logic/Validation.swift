@@ -25,6 +25,10 @@ public enum ValidationError: Error, Equatable, Sendable {
     /// (`ExpenseDraft.resolve()` — the server never sees percents, so this is
     /// the only place it can be caught).
     case percentageTotal(Int)
+    /// A percentage split's typed percents don't name the same members its
+    /// resolved `splits` charge (or a percent is outside 1–100, or someone
+    /// appears twice).
+    case percentageMembersMismatch
 }
 
 /// Split-sum validation and deterministic remainder distribution.
@@ -223,6 +227,29 @@ public enum Validation {
         }
 
         return order.map { ExpenseSplit(memberId: $0, amountMinor: totals[$0] ?? 0) }
+    }
+
+    /// Checks a `percentage` expense's typed percents (`CHECKLIST.md` "Store
+    /// the typed percentages"): each a whole number from 1 to 100, nobody
+    /// twice, every one a real group member, summing to exactly 100, and
+    /// naming exactly the members `splits` charges. Mirrors the worker's
+    /// `assertPercentagesValid`.
+    public static func validatePercentages(
+        _ percentages: [PercentageWeight],
+        splits: [ExpenseSplit],
+        validMemberIds: Set<String>
+    ) throws {
+        var seen = Set<String>()
+        var total = 0
+        for p in percentages {
+            guard (1...100).contains(p.percent), seen.insert(p.memberId).inserted else {
+                throw ValidationError.percentageMembersMismatch
+            }
+            total += p.percent
+        }
+        try validateMembersExist(memberIds: Array(seen), validMemberIds: validMemberIds)
+        guard total == 100 else { throw ValidationError.percentageTotal(total) }
+        guard Set(splits.map(\.memberId)) == seen else { throw ValidationError.percentageMembersMismatch }
     }
 
     /// Checks an itemized expense's line items: at least one item, every item

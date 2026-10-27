@@ -131,17 +131,18 @@ struct ExpenseDraftInvariantTests {
                 settlements: []
             )
             #expect(balances.reduce(0) { $0 + $1.netMinor } == 0, "\(where_): balances don't net to zero")
-            // 6. Save → re-open → save: always saveable, and unchanged — except
-            //    a percentage split on a tiny amount. Percents aren't stored
-            //    (only the resulting amounts), and below 200 × (people − 1)
-            //    paise the few-paise remainder can shift a back-computed
-            //    percent by a whole point (`CHECKLIST.md` "Test framework
-            //    rebuild" step 4). Above that bound it must be exact.
+            // 6. Save → re-open → save changes nothing — for every split
+            //    type and amount, now that typed percents are stored
+            //    (`CHECKLIST.md` "Store the typed percentages"; before that,
+            //    tiny percentage splits could drift by a point).
             let reopened = ExpenseDraft(rehydrating: expense(r, type), memberIds: d.memberIds, fallbackPayerId: d.payerId, keepItemIds: true)
             #expect(reopened.canResolve, "\(where_): re-opened expense can't be saved")
-            let percentPeople = Int64(r.splits.count)
-            if type != .percentage || amount > 200 * (percentPeople - 1) {
-                #expect((try? reopened.resolve()) == r, "\(where_): re-opening changes the expense")
+            #expect((try? reopened.resolve()) == r, "\(where_): re-opening changes the expense")
+            // 7. What's sent passes the server's own percentage check.
+            if let percentages = r.percentages {
+                #expect(throws: Never.self, "\(where_): percentages rejected") {
+                    try Validation.validatePercentages(percentages, splits: r.splits, validMemberIds: Set(d.memberIds))
+                }
             }
         }
     }
@@ -175,7 +176,7 @@ struct ExpenseDraftInvariantTests {
         Expense(
             id: "e", payers: r.payers, amountMinor: r.amountMinor, currency: "INR", description: "x",
             date: Date(timeIntervalSince1970: 0), splitType: type, splits: r.splits,
-            items: r.items, shares: r.shares, taxMinor: r.taxMinor, tipMinor: r.tipMinor
+            items: r.items, shares: r.shares, percentages: r.percentages, taxMinor: r.taxMinor, tipMinor: r.tipMinor
         )
     }
 }

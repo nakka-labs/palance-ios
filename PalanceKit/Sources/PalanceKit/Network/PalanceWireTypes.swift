@@ -287,6 +287,12 @@ public struct AddExpenseRequest: Sendable {
     /// carries the balance-affecting shares, the server stores these alongside
     /// for re-edit and checks the two agree (`DESIGN.md` §6).
     public let shares: [ShareWeight]?
+    /// The whole-number percents a `percentage` expense was typed as — `nil`
+    /// (key omitted) for every other `splitType`. The server checks they sum to
+    /// 100 and name exactly the members `splits` charges, and stores them for
+    /// re-edit (`CHECKLIST.md` "Store the typed percentages"). A server older
+    /// than schema v15 rejects the key, so the worker deploys first.
+    public let percentages: [PercentageWeight]?
     /// Tax/tip on an `itemized` expense (`CHECKLIST.md` "Tax/tip proportional
     /// split on itemized expenses") — `nil` (key omitted) when absent, same
     /// contract as `items`/`shares`. Distributed proportionally by each
@@ -315,6 +321,7 @@ public struct AddExpenseRequest: Sendable {
         splits: [ExpenseSplit],
         items: [LineItem]? = nil,
         shares: [ShareWeight]? = nil,
+        percentages: [PercentageWeight]? = nil,
         taxMinor: Int64? = nil,
         tipMinor: Int64? = nil,
         category: String? = nil,
@@ -331,6 +338,7 @@ public struct AddExpenseRequest: Sendable {
         self.splits = splits
         self.items = items
         self.shares = shares
+        self.percentages = percentages
         self.taxMinor = taxMinor
         self.tipMinor = tipMinor
         self.category = category
@@ -351,6 +359,7 @@ public struct AddExpenseRequest: Sendable {
         splits: [ExpenseSplit],
         items: [LineItem]? = nil,
         shares: [ShareWeight]? = nil,
+        percentages: [PercentageWeight]? = nil,
         taxMinor: Int64? = nil,
         tipMinor: Int64? = nil,
         category: String? = nil,
@@ -368,6 +377,7 @@ public struct AddExpenseRequest: Sendable {
             splits: splits,
             items: items,
             shares: shares,
+            percentages: percentages,
             taxMinor: taxMinor,
             tipMinor: tipMinor,
             category: category,
@@ -380,7 +390,7 @@ public struct AddExpenseRequest: Sendable {
 extension AddExpenseRequest: Encodable {
     private enum CodingKeys: String, CodingKey {
         case id, payers, amountMinor, currency, description, date, splitType, splits,
-             items, shares, taxMinor, tipMinor, category, categoryIcon, attachments
+             items, shares, percentages, taxMinor, tipMinor, category, categoryIcon, attachments
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -397,6 +407,7 @@ extension AddExpenseRequest: Encodable {
         try container.encode(splits, forKey: .splits)
         try container.encodeIfPresent(items, forKey: .items)
         try container.encodeIfPresent(shares, forKey: .shares)
+        try container.encodeIfPresent(percentages, forKey: .percentages)
         try container.encodeIfPresent(taxMinor, forKey: .taxMinor)
         try container.encodeIfPresent(tipMinor, forKey: .tipMinor)
         try container.encodeIfPresent(category, forKey: .category)

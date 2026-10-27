@@ -219,7 +219,15 @@ struct ExpenseDraftTests {
         Expense(
             id: "e1", payers: r.payers, amountMinor: r.amountMinor, currency: "INR", description: "x",
             date: Date(timeIntervalSince1970: 0), splitType: type, splits: r.splits,
-            items: r.items, shares: r.shares, taxMinor: r.taxMinor, tipMinor: r.tipMinor
+            items: r.items, shares: r.shares, percentages: r.percentages, taxMinor: r.taxMinor, tipMinor: r.tipMinor
+        )
+    }
+
+    /// The same expense as an app/server predating stored percentages saved it.
+    private func savedLegacy(_ r: ExpenseDraft.Resolution, _ type: SplitType) -> Expense {
+        Expense(
+            id: "e1", payers: r.payers, amountMinor: r.amountMinor, currency: "INR", description: "x",
+            date: Date(timeIntervalSince1970: 0), splitType: type, splits: r.splits
         )
     }
 
@@ -286,7 +294,35 @@ struct ExpenseDraftTests {
         #expect(try roundTrips(d))
     }
 
-    @Test("re-opening a percentage split on a tiny amount still adds up to 100% (found by the invariant tests)")
+    @Test("a percentage split sends the percents exactly as typed, in group order")
+    func percentagesSent() throws {
+        var d = draft([Self.asha, Self.ben, Self.chen], paidBy: Self.asha, amount: "0.06")
+        d.splitType = .percentage
+        d.percentText = [Self.chen: "33", Self.asha: "34", Self.ben: "33"]
+        #expect(try d.resolve().percentages == [
+            PercentageWeight(memberId: Self.asha, percent: 34),
+            PercentageWeight(memberId: Self.ben, percent: 33),
+            PercentageWeight(memberId: Self.chen, percent: 33),
+        ])
+    }
+
+    @Test("other split types send no percentages")
+    func noPercentagesElsewhere() throws {
+        #expect(try draft([Self.asha, Self.ben], paidBy: Self.asha, amount: "10").resolve().percentages == nil)
+    }
+
+    @Test("re-opening a tiny percentage split shows exactly what was typed, now that it's stored")
+    func roundTripPercentTinyStored() throws {
+        var d = draft([Self.asha, Self.ben, Self.chen], paidBy: Self.asha, amount: "0.06")
+        d.splitType = .percentage
+        d.percentText = [Self.asha: "34", Self.ben: "33", Self.chen: "33"]
+        let first = try d.resolve()
+        let reopened = ExpenseDraft(rehydrating: saved(first, .percentage), memberIds: d.memberIds, fallbackPayerId: Self.asha, keepItemIds: true)
+        #expect(reopened.percentText == d.percentText)
+        #expect(try reopened.resolve() == first)
+    }
+
+    @Test("re-opening a legacy (pre-stored-percentages) tiny percentage split still adds up to 100%")
     func roundTripPercentTinyAmount() throws {
         // ₹0.06 at 34 / 33 / 33, Asha paid → 2 / 1 / 1 paise plus 2 paise of
         // remainder to Asha = 4 / 1 / 1. Rounding each member independently
@@ -297,7 +333,7 @@ struct ExpenseDraftTests {
         d.percentText = [Self.asha: "34", Self.ben: "33", Self.chen: "33"]
         let first = try d.resolve()
         #expect(first.splits == [split(Self.asha, 4), split(Self.ben, 1), split(Self.chen, 1)])
-        let reopened = ExpenseDraft(rehydrating: saved(first, .percentage), memberIds: d.memberIds, fallbackPayerId: Self.asha, keepItemIds: true)
+        let reopened = ExpenseDraft(rehydrating: savedLegacy(first, .percentage), memberIds: d.memberIds, fallbackPayerId: Self.asha, keepItemIds: true)
         #expect(reopened.percentText == [Self.asha: "67", Self.ben: "17", Self.chen: "16"])
         #expect(reopened.canResolve)
     }

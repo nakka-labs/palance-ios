@@ -33,6 +33,20 @@ public struct ShareWeight: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+/// One member's whole-number percent on a `percentage` expense, exactly as
+/// typed (`CHECKLIST.md` "Store the typed percentages"). Kept so re-opening
+/// the expense shows what was typed rather than percents back-computed from
+/// the rounded amounts.
+public struct PercentageWeight: Codable, Sendable, Equatable {
+    public let memberId: String
+    public let percent: Int
+
+    public init(memberId: String, percent: Int) {
+        self.memberId = memberId
+        self.percent = percent
+    }
+}
+
 /// One member's share of an `Expense`. All expense splits for a given expense
 /// must sum exactly to that expense's `amountMinor` — see `Validation`.
 public struct ExpenseSplit: Codable, Sendable, Equatable {
@@ -90,6 +104,11 @@ public struct Expense: Identifiable, Codable, Sendable {
     /// — `nil` for every other `splitType`. Like `items`, the resolved `splits`
     /// stay authoritative for balances; this is kept for display / re-edit.
     public let shares: [ShareWeight]?
+    /// The whole-number percents a `percentage` expense was typed as — `nil`
+    /// for every other `splitType`, and for percentage expenses saved before
+    /// the server stored them (schema v15). Display / re-edit only; `splits`
+    /// stay authoritative.
+    public let percentages: [PercentageWeight]?
     /// Tax/tip on an `itemized` expense (`CHECKLIST.md` "Tax/tip proportional
     /// split on itemized expenses") — `nil` for every other `splitType`, or
     /// an itemized expense with neither set. Distributed proportionally by
@@ -135,6 +154,7 @@ public struct Expense: Identifiable, Codable, Sendable {
         splits: [ExpenseSplit],
         items: [LineItem]? = nil,
         shares: [ShareWeight]? = nil,
+        percentages: [PercentageWeight]? = nil,
         taxMinor: Int64? = nil,
         tipMinor: Int64? = nil,
         attachments: [String]? = nil,
@@ -153,6 +173,7 @@ public struct Expense: Identifiable, Codable, Sendable {
         self.splits = splits
         self.items = items
         self.shares = shares
+        self.percentages = percentages
         self.taxMinor = taxMinor
         self.tipMinor = tipMinor
         self.attachments = attachments
@@ -176,6 +197,7 @@ public struct Expense: Identifiable, Codable, Sendable {
         splits: [ExpenseSplit],
         items: [LineItem]? = nil,
         shares: [ShareWeight]? = nil,
+        percentages: [PercentageWeight]? = nil,
         taxMinor: Int64? = nil,
         tipMinor: Int64? = nil,
         attachments: [String]? = nil,
@@ -195,6 +217,7 @@ public struct Expense: Identifiable, Codable, Sendable {
             splits: splits,
             items: items,
             shares: shares,
+            percentages: percentages,
             taxMinor: taxMinor,
             tipMinor: tipMinor,
             attachments: attachments,

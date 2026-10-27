@@ -8,6 +8,7 @@ import type {
   ExpensePayment,
   LineItem,
   Member,
+  PercentageWeight,
   Settlement,
   ShareWeight,
   SimplifiedSettlement,
@@ -15,7 +16,7 @@ import type {
 } from "./lib/types.ts";
 
 export type {
-  Balance, Comment, Expense, ExpensePayment, LineItem, Member, Settlement, ShareWeight, SimplifiedSettlement, SplitType,
+  Balance, Comment, Expense, ExpensePayment, LineItem, Member, PercentageWeight, Settlement, ShareWeight, SimplifiedSettlement, SplitType,
 };
 
 /**
@@ -129,6 +130,11 @@ export interface AddExpenseRequest {
    * otherwise. Whole-number ratios the client also resolves into `splits`
    * before dispatch; the server validates both and stores these for re-edit. */
   shares?: ShareWeight[];
+  /** Optional on a `percentage` expense (an app predating it simply omits
+   * it), rejected on any other `splitType`. The whole-number percents as
+   * typed; the server checks they sum to 100 and name exactly the members
+   * `splits` charges, and stores them for re-edit. */
+  percentages?: PercentageWeight[];
   /** Tax / tip on an `itemized` expense (`CHECKLIST.md` "Tax/tip proportional
    * split on itemized expenses") — optional even then (an itemized expense
    * needn't have either), rejected on any other `splitType`. Distributed

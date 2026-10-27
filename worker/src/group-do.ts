@@ -10,6 +10,7 @@ import {
   assertMembersExist,
   assertPayersSum,
   assertPositiveAmount,
+  assertPercentagesValid,
   assertSharesValid,
   assertSplitsSum,
 } from "./lib/validation.ts";
@@ -25,6 +26,7 @@ import type {
   GroupSummary,
   LineItem,
   Member,
+  PercentageWeight,
   Settlement,
   ShareWeight,
 } from "./types.ts";
@@ -68,6 +70,9 @@ type ExpenseRow = Row<{
   /** Tax / tip on an `itemized` expense (`CHECKLIST.md` "Tax/tip proportional
    * split on itemized expenses"); `NULL` when absent or not itemized. */
   tax_minor: number | null;
+  /** JSON `PercentageWeight[]` for a `percentage` expense saved at v15+;
+   * `NULL` otherwise (`CHECKLIST.md` "Store the typed percentages"). */
+  percentages: string | null;
   tip_minor: number | null;
 }>;
 type SplitRow = Row<{
@@ -332,6 +337,15 @@ export class GroupDO extends DurableObject {
       this.setMeta(META_KEYS.schemaVersion, "14");
       current = "14";
     }
+
+    if (current === "14") {
+      // v15: `expenses.percentages` (nullable JSON) added — CHECKLIST.md
+      // "Store the typed percentages". No CHECK involved, so a plain ADD
+      // COLUMN; NULL for every existing expense.
+      this.sql.exec("ALTER TABLE expenses ADD COLUMN percentages TEXT");
+      this.setMeta(META_KEYS.schemaVersion, "15");
+      current = "15";
+    }
   }
 
   /** Has this group been created (vs. just addressed)? Drives `GROUP_NOT_FOUND`. */
@@ -579,6 +593,31 @@ export class GroupDO extends DurableObject {
     this.sql.exec("UPDATE settlements SET from_id = ? WHERE from_id = ?", keepId, mergeId);
     this.sql.exec("UPDATE settlements SET to_id = ? WHERE to_id = ?", keepId, mergeId);
     this.sql.exec("UPDATE comments SET author_member_id = ? WHERE author_member_id = ?", keepId, mergeId);
+
+    // The breakdowns kept for re-edit name members too — shares weights,
+    // itemized participants, typed percentages. Before this, a merge left
+    // them pointing at the deleted member, so re-opening the expense
+    // silently dropped that person's part. The overlap check above means
+    // the two ids never both appear in one expense, so this is a plain
+    // rename.
+    const rename = (id: string) => (id === mergeId ? keepId : id);
+    const breakdownRows = this.sql
+      .exec<{ id: string; shares: string | null; items: string | null; percentages: string | null }>(
+        "SELECT id, shares, items, percentages FROM expenses WHERE shares IS NOT NULL OR items IS NOT NULL OR percentages IS NOT NULL",
+      )
+      .toArray();
+    for (const row of breakdownRows) {
+      const shares = row.shares && (JSON.parse(row.shares) as ShareWeight[]).map((s) => ({ ...s, memberId: rename(s.memberId) }));
+      const items = row.items && (JSON.parse(row.items) as LineItem[]).map((i) => ({ ...i, participantIds: i.participantIds.map(rename) }));
+      const percentages = row.percentages && (JSON.parse(row.percentages) as PercentageWeight[]).map((p) => ({ ...p, memberId: rename(p.memberId) }));
+      this.sql.exec(
+        "UPDATE expenses SET shares = ?, items = ?, percentages = ? WHERE id = ?",
+        shares ? JSON.stringify(shares) : null,
+        items ? JSON.stringify(items) : null,
+        percentages ? JSON.stringify(percentages) : null,
+        row.id,
+      );
+    }
 
     // A member might be a *non-primary* payer on a multi-payer expense
     // (`CHECKLIST.md` "Multiple payers on one expense") — the `UPDATE
@@ -1172,6 +1211,12 @@ export class GroupDO extends DurableObject {
       if (req.splitType === "shares") {
         assertSharesValid(req.shares ?? [], memberIds);
       }
+      // A `percentage` expense may carry the percents it was typed as
+      // (optional — an app predating them omits it). `parseExpenseBody`
+      // already refused them on any other `splitType`.
+      if (req.percentages !== undefined) {
+        assertPercentagesValid(req.percentages, req.splits, memberIds);
+      }
       return null;
     } catch (e) {
       if (e instanceof ValidationFailure) return fail(e.code, e.message);
@@ -1198,6 +1243,7 @@ export class GroupDO extends DurableObject {
     const currency = req.currency ?? this.requireMeta(META_KEYS.currency);
     const items = req.splitType === "itemized" && req.items ? JSON.stringify(req.items) : null;
     const shares = req.splitType === "shares" && req.shares ? JSON.stringify(req.shares) : null;
+    const percentages = req.splitType === "percentage" && req.percentages ? JSON.stringify(req.percentages) : null;
     const attachments = req.attachments && req.attachments.length > 0 ? JSON.stringify(req.attachments) : null;
     // The common case (one payer) is stored the same way it always has been —
     // payer_id/amount_minor — so a single-payer expense never carries a
@@ -1213,7 +1259,7 @@ export class GroupDO extends DurableObject {
     const taxMinor = req.splitType === "itemized" ? req.taxMinor ?? null : null;
     const tipMinor = req.splitType === "itemized" ? req.tipMinor ?? null : null;
     this.sql.exec(
-      "INSERT INTO expenses (id, payer_id, amount_minor, description, expense_date, split_type, created_at, category, category_icon, currency, items, attachments, shares, payers, tax_minor, tip_minor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO expenses (id, payer_id, amount_minor, description, expense_date, split_type, created_at, category, category_icon, currency, items, attachments, shares, payers, tax_minor, tip_minor, percentages) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       id,
       primaryPayerId,
       req.amountMinor,
@@ -1230,6 +1276,7 @@ export class GroupDO extends DurableObject {
       payers,
       taxMinor,
       tipMinor,
+      percentages,
     );
     for (const s of req.splits) {
       this.sql.exec(
@@ -1373,6 +1420,7 @@ export class GroupDO extends DurableObject {
       // dropped by JSON.stringify), matching the `category?` wire shape.
       ...(e.items != null ? { items: JSON.parse(e.items) as LineItem[] } : {}),
       ...(e.shares != null ? { shares: JSON.parse(e.shares) as ShareWeight[] } : {}),
+      ...(e.percentages != null ? { percentages: JSON.parse(e.percentages) as PercentageWeight[] } : {}),
       ...(e.tax_minor != null ? { taxMinor: e.tax_minor } : {}),
       ...(e.tip_minor != null ? { tipMinor: e.tip_minor } : {}),
       ...(e.attachments != null ? { attachments: JSON.parse(e.attachments) as string[] } : {}),

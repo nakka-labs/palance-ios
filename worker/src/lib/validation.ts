@@ -1,4 +1,4 @@
-import type { ExpensePayment, ExpenseSplit, LineItem, ShareWeight } from "./types.ts";
+import type { ExpensePayment, ExpenseSplit, LineItem, PercentageWeight, ShareWeight } from "./types.ts";
 
 // Money is integer minor units. JavaScript `number` is exact for integers up to
 // 2^53; a group's running totals stay many orders of magnitude below that, so
@@ -174,4 +174,40 @@ export function assertSharesValid(
     throw new ValidationFailure("SPLIT_MISMATCH", "Share weights add up to zero — nothing to divide by.");
   }
   assertMembersExist(shares.map((s) => s.memberId), groupMemberIds);
+}
+
+/**
+ * Checks a `percentage` expense's typed percents (`CHECKLIST.md` "Store the
+ * typed percentages"): each a whole number from 1 to 100, no member twice,
+ * every one a real group member, adding up to exactly 100 — and naming
+ * exactly the members `splits` charges (a zero-amount split on a tiny
+ * expense still counts as charged). Mirrors
+ * `PalanceKit.Validation.validatePercentages`. The resolved `splits` are
+ * checked separately by `assertSplitsSum`.
+ */
+export function assertPercentagesValid(
+  percentages: PercentageWeight[],
+  splits: ExpenseSplit[],
+  groupMemberIds: ReadonlySet<string>,
+): void {
+  let total = 0;
+  const seen = new Set<string>();
+  for (const p of percentages) {
+    if (typeof p.percent !== "number" || !Number.isInteger(p.percent) || p.percent < 1 || p.percent > 100) {
+      throw new ValidationFailure("SPLIT_MISMATCH", "Each percentage must be a whole number from 1 to 100.");
+    }
+    if (seen.has(p.memberId)) {
+      throw new ValidationFailure("SPLIT_MISMATCH", "A member appears more than once in the percentages.");
+    }
+    seen.add(p.memberId);
+    total += p.percent;
+  }
+  assertMembersExist([...seen], groupMemberIds);
+  if (total !== 100) {
+    throw new ValidationFailure("SPLIT_MISMATCH", `Percentages add up to ${total}, not 100.`);
+  }
+  const charged = new Set(splits.map((s) => s.memberId));
+  if (charged.size !== seen.size || [...charged].some((id) => !seen.has(id))) {
+    throw new ValidationFailure("SPLIT_MISMATCH", "The percentages and the splits don't name the same members.");
+  }
 }

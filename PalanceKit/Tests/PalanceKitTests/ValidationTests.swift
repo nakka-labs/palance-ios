@@ -94,6 +94,56 @@ struct ValidationTests {
         }
     }
 
+    // MARK: - validatePercentages (mirrors the worker's assertPercentagesValid)
+
+    private static let pctSplits = [
+        ExpenseSplit(memberId: "a", amountMinor: 4),
+        ExpenseSplit(memberId: "b", amountMinor: 1),
+        ExpenseSplit(memberId: "c", amountMinor: 1),
+    ]
+
+    @Test("typed percentages that sum to 100 and match the splits pass")
+    func testPercentagesValid() throws {
+        try Validation.validatePercentages(
+            [PercentageWeight(memberId: "a", percent: 34), PercentageWeight(memberId: "b", percent: 33), PercentageWeight(memberId: "c", percent: 33)],
+            splits: Self.pctSplits, validMemberIds: ["a", "b", "c"]
+        )
+    }
+
+    @Test("typed percentages that don't sum to 100 are refused")
+    func testPercentagesWrongTotal() {
+        #expect(throws: ValidationError.percentageTotal(99)) {
+            try Validation.validatePercentages(
+                [PercentageWeight(memberId: "a", percent: 33), PercentageWeight(memberId: "b", percent: 33), PercentageWeight(memberId: "c", percent: 33)],
+                splits: Self.pctSplits, validMemberIds: ["a", "b", "c"]
+            )
+        }
+    }
+
+    @Test("typed percentages for a non-member are refused")
+    func testPercentagesUnknownMember() {
+        #expect(throws: ValidationError.unknownMember("z")) {
+            try Validation.validatePercentages(
+                [PercentageWeight(memberId: "a", percent: 34), PercentageWeight(memberId: "b", percent: 33), PercentageWeight(memberId: "z", percent: 33)],
+                splits: Self.pctSplits, validMemberIds: ["a", "b", "c"]
+            )
+        }
+    }
+
+    @Test("typed percentages that leave out a charged member, give 0%, or repeat someone are refused")
+    func testPercentagesMembersMismatch() {
+        let cases: [[PercentageWeight]] = [
+            [PercentageWeight(memberId: "a", percent: 50), PercentageWeight(memberId: "b", percent: 50)],
+            [PercentageWeight(memberId: "a", percent: 67), PercentageWeight(memberId: "b", percent: 33), PercentageWeight(memberId: "c", percent: 0)],
+            [PercentageWeight(memberId: "a", percent: 34), PercentageWeight(memberId: "b", percent: 33), PercentageWeight(memberId: "b", percent: 33)],
+        ]
+        for percentages in cases {
+            #expect(throws: ValidationError.percentageMembersMismatch) {
+                try Validation.validatePercentages(percentages, splits: Self.pctSplits, validMemberIds: ["a", "b", "c"])
+            }
+        }
+    }
+
     @Test("50/30/20 percentage split resolves to exact minor-unit shares")
     func testPercentageSplitBasic() throws {
         let splits = Validation.percentageSplit(

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { computeBalances } from "../src/lib/balances.ts";
-import { assertMembersExist, assertPayersSum, assertSplitsSum } from "../src/lib/validation.ts";
+import { assertMembersExist, assertPayersSum, assertPercentagesValid, assertSplitsSum } from "../src/lib/validation.ts";
 import type { Expense, ExpensePayment, ExpenseSplit, Member } from "../src/lib/types.ts";
 
 // The shared split scenarios (`test-fixtures/splits/`, format in
@@ -19,6 +19,7 @@ interface Scenario {
   story: string;
   members: string[];
   currency: string;
+  split: { type: string; percents?: Record<string, string> };
   expect: {
     cannotSave?: boolean;
     payers?: Record<string, number>;
@@ -53,6 +54,12 @@ describe("split scenarios (shared with PalanceKitTests/SplitScenarioTests)", () 
       expect(() => assertPayersSum(amountMinor, payers)).not.toThrow();
       expect(() => assertSplitsSum(amountMinor, splits)).not.toThrow();
       expect(() => assertMembersExist([...payers, ...splits].map((x) => x.memberId), memberIds)).not.toThrow();
+      if (s.split.type === "percentage") {
+        const percentages = s.members
+          .filter((n) => Number(s.split.percents?.[n] ?? 0) > 0)
+          .map((n) => ({ memberId: n, percent: Number(s.split.percents![n]) }));
+        expect(() => assertPercentagesValid(percentages, splits, memberIds)).not.toThrow();
+      }
 
       const members: Member[] = s.members.map((id) => ({ id, displayName: id, isClaimed: false }));
       const expense: Expense = {

@@ -21,6 +21,7 @@ interface Scenario {
   split: {
     type: "equal" | "exact" | "percentage" | "shares" | "itemized";
     weights?: Record<string, string>;
+    percents?: Record<string, string>;
     items?: { name: string; amount: string; for: string[] }[];
     tax?: string;
     tip?: string;
@@ -93,6 +94,14 @@ describe("split scenarios end to end (router → Durable Object → balances)", 
           .filter((n) => Number(s.split.weights?.[n] ?? 0) > 0)
           .map((n) => ({ memberId: idOf[n], weight: Number(s.split.weights![n]) }));
       }
+      // A percentage expense also sends the percents as typed (schema v15).
+      const percentages =
+        s.split.type === "percentage"
+          ? s.members
+              .filter((n) => Number(s.split.percents?.[n] ?? 0) > 0)
+              .map((n) => ({ memberId: idOf[n]!, percent: Number(s.split.percents![n]) }))
+          : undefined;
+      if (percentages) body.percentages = percentages;
       if (s.split.type === "itemized") {
         body.items = s.split.items!.map((item, i) => ({
           id: `item-${i}`,
@@ -109,6 +118,7 @@ describe("split scenarios end to end (router → Durable Object → balances)", 
 
       const state = await call("GET", `/api/groups/${groupId}`, token);
       expect(state.status).toBe(200);
+      if (percentages) expect(state.json.expenses[0].percentages).toEqual(percentages);
       const balances = Object.fromEntries(
         (state.json.balances as { memberId: string; netMinor: number }[])
           .filter((b) => b.netMinor !== 0)

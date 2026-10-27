@@ -225,6 +225,41 @@ describe("POST /api/groups/:groupId/expenses", () => {
     b = await addMember(groupId, "Ben", token);
   });
 
+  it('refuses "percentages" on anything but a percentage split (400)', async () => {
+    const { status } = await post(
+      `/api/groups/${groupId}/expenses`,
+      {
+        payers: [{ memberId: a, amountMinor: 1000 }],
+        amountMinor: 1000,
+        description: "Lunch",
+        date: "2026-01-01T12:00:00Z",
+        splitType: "equal",
+        splits: [{ memberId: a, amountMinor: 500 }, { memberId: b, amountMinor: 500 }],
+        percentages: [{ memberId: a, percent: 50 }, { memberId: b, percent: 50 }],
+      },
+      token,
+    );
+    expect(status).toBe(400);
+  });
+
+  it("accepts and returns the typed percentages on a percentage split", async () => {
+    const { status, json } = await post(
+      `/api/groups/${groupId}/expenses`,
+      {
+        payers: [{ memberId: a, amountMinor: 1000 }],
+        amountMinor: 1000,
+        description: "Lunch",
+        date: "2026-01-01T12:00:00Z",
+        splitType: "percentage",
+        splits: [{ memberId: a, amountMinor: 700 }, { memberId: b, amountMinor: 300 }],
+        percentages: [{ memberId: a, percent: 70 }, { memberId: b, percent: 30 }],
+      },
+      token,
+    );
+    expect(status).toBe(201);
+    expect((json.expense as Json).percentages).toEqual([{ memberId: a, percent: 70 }, { memberId: b, percent: 30 }]);
+  });
+
   it("records an equal-split expense and updates balances", async () => {
     const { status, json } = await post(
       `/api/groups/${groupId}/expenses`,

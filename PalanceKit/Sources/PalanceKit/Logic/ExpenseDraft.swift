@@ -182,6 +182,9 @@ public struct ExpenseDraft: Equatable, Sendable {
         public let items: [LineItem]?
         /// Only for `.shares` — the raw weights, for re-edit.
         public let shares: [ShareWeight]?
+        /// Only for `.percentage` — the percents as typed, for re-edit
+        /// (`CHECKLIST.md` "Store the typed percentages").
+        public let percentages: [PercentageWeight]?
         /// Only for `.itemized`, and only when positive.
         public let taxMinor: Int64?
         public let tipMinor: Int64?
@@ -201,6 +204,7 @@ public struct ExpenseDraft: Equatable, Sendable {
         let splits: [ExpenseSplit]
         var items: [LineItem]?
         var shares: [ShareWeight]?
+        var percentages: [PercentageWeight]?
         switch splitType {
         case .equal:
             let included = memberIds.filter { includedMemberIds.contains($0) }
@@ -223,6 +227,10 @@ public struct ExpenseDraft: Equatable, Sendable {
             // weight) — found by the shared split scenarios (step 3).
             guard percentTotal == 100 else { throw ValidationError.percentageTotal(percentTotal) }
             splits = Validation.percentageSplit(amountMinor: amountMinor, weights: weights, remainderRecipient: remainderRecipient)
+            // Sent as typed, in group order, so re-opening shows exactly
+            // this — and checked the way the server will check it.
+            percentages = weights.map { PercentageWeight(memberId: $0.memberId, percent: $0.weight) }
+            try Validation.validatePercentages(percentages ?? [], splits: splits, validMemberIds: Set(memberIds))
         case .shares:
             let entered = memberIds
                 .map { (memberId: $0, weight: share(for: $0)) }
@@ -261,6 +269,7 @@ public struct ExpenseDraft: Equatable, Sendable {
             splits: splits,
             items: items,
             shares: shares,
+            percentages: percentages,
             taxMinor: (splitType == .itemized && taxMinor > 0) ? taxMinor : nil,
             tipMinor: (splitType == .itemized && tipMinor > 0) ? tipMinor : nil
         )
@@ -293,8 +302,11 @@ public struct ExpenseDraft: Equatable, Sendable {
             uniqueKeysWithValues: expense.splits.map { ($0.memberId, MoneyFormat.plainString(minorUnits: $0.amountMinor)) }
         )
 
-        if expense.splitType == .percentage, expense.amountMinor > 0 {
-            // Percentages aren't stored — only the resolved minor-unit shares —
+        if expense.splitType == .percentage, let stored = expense.percentages, !stored.isEmpty {
+            // Stored as typed (schema v15+) — use them exactly.
+            percentText = Dictionary(uniqueKeysWithValues: stored.map { ($0.memberId, String($0.percent)) })
+        } else if expense.splitType == .percentage, expense.amountMinor > 0 {
+            // Saved before percents were stored — only the resolved minor-unit shares —
             // so they're back-computed by largest remainder: everyone's floor,
             // then the missing points to the biggest fractions (ties → member
             // order). Always sums to exactly 100, so a re-opened expense can

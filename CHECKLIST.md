@@ -132,6 +132,34 @@ Steps, each its own commit with `make check` green:
       non-blocking warning naming any workflow whose latest run on `main`
       failed — the signal that was missing for six weeks.
 
+### Store the typed percentages — owner request, 2026-10-27
+
+Follow-on from the test rebuild's step 4: a percentage expense stored only
+its resolved amounts, so re-opening one on a tiny amount couldn't recover
+the percents that were typed.
+
+- [x] **Worker + client, schema v15.** Done 2026-10-27. Optional
+      `percentages: [{ memberId, percent }]` on a `percentage` expense
+      (rejected on other types; omitted by older apps, which keep working).
+      Server checks 1–100, no duplicates, members exist, sums to 100, same
+      members as `splits` (`assertPercentagesValid` ↔ Swift
+      `Validation.validatePercentages`); stored in `expenses.percentages`
+      (v15 `ADD COLUMN`), returned on read. The app sends them
+      (`ExpenseDraft.Resolution.percentages`) and re-opens from them,
+      falling back to largest-remainder back-computation for older
+      expenses. `ExpenseDraftInvariantTests` now demands an exact
+      save → reopen → save for **every** type and amount (the tiny-amount
+      carve-out is gone). `DESIGN.md` §2/§6/§10/§11 updated.
+- [x] **Merge fix found on the way.** `mergeMembers` renamed the merged id
+      in `payers`/`expense_splits` but not in stored `shares` weights or
+      itemized `participantIds`, so re-opening such an expense after a merge
+      silently dropped the merged person's part. Now renames inside
+      `shares`, `items`, and `percentages` too (test in `group.test.ts`).
+- [ ] **Deploy the worker before any app build that sends `percentages`.**
+      The live v14 worker rejects the unknown key with a 400 — every new
+      percentage expense from a new build would fail until it's deployed
+      (`make worker-deploy`; same lesson as the 2026-09-15 outage).
+
 ### Ground-up rename: ClanTab → Palance — new bundle ID, new ASC app, 2026-09-27
 
 Owner decision 2026-09-27: full rename, new bundle ID

@@ -124,18 +124,24 @@ Request:  { id?: string, payerId, amountMinor, currency?, description, date,
             splits: [{ memberId, amountMinor }],
             items?: [{ id, name, amountMinor, participantIds: [memberId] }],
             shares?: [{ memberId, weight }],
+            percentages?: [{ memberId, percent }],
             category?: string, categoryIcon?: string,
             attachments?: [string] }
 Response: 201 { expense: {...} }
 Errors:   400 SPLIT_MISMATCH   — splits don't sum to amountMinor, or (itemized)
                                  the line items don't, or an item has no participants,
-                                 or (shares) every weight is zero
+                                 or (shares) every weight is zero, or (percentages)
+                                 they don't sum to 100, a percent is outside 1–100,
+                                 someone appears twice, or they don't name exactly
+                                 the members `splits` charges
           400 UNKNOWN_MEMBER   — payerId, a split memberId, an item
-                                 participant, or a shares memberId isn't in this group
+                                 participant, or a shares/percentages memberId isn't
+                                 in this group
           400 INVALID_AMOUNT   — amountMinor (or an item amount) <= 0, or not an
                                  integer; or a share weight is negative / non-integer
           400 BAD_REQUEST      — `items` present without splitType "itemized", or
-                                 `shares` without splitType "shares", or vice versa
+                                 `shares` without splitType "shares", or vice versa,
+                                 or `percentages` on any splitType but "percentage"
 ```
 `id` is optional and client-generated (UUID). If provided and it already exists, the DO treats this as a no-op replay (idempotent retry-safe) rather than a duplicate — covers the case where a client times out and retries a POST that actually succeeded.
 
@@ -144,6 +150,8 @@ Errors:   400 SPLIT_MISMATCH   — splits don't sum to amountMinor, or (itemized
 `items` is present **iff** `splitType` is `"itemized"` (`FEATURE_BACKLOG.md` "Itemized expense entry"): the line items the expense was built from — each a positive amount shared equally by a non-empty `participantIds`, the items together summing to `amountMinor` (no separate tax/tip bucket — a shared surcharge is its own line). `splits` stays the balance source of truth; `items` is stored alongside so reopening the expense shows the breakdown and an edit starts from it. The server validates both. Editing an expense to a non-itemized `splitType` drops its stored `items`.
 
 `shares` is present **iff** `splitType` is `"shares"` (`CHECKLIST.md` "Split by shares"): the whole-number ratio weights the expense was divided by (A : 4, B : 2 → A owes 4/6). Each weight is a non-negative integer, for a real group member, with a positive total; the weights are otherwise unconstrained and needn't sum to anything. Same maths as `percentage` — `PalanceKit.Validation.sharesSplit` is literally `percentageSplit` — so `splits` arrives pre-resolved and the balance math is unchanged. Like `items`, `shares` is stored alongside for display / re-edit and dropped when an expense is edited to another `splitType`.
+
+`percentages` is **optional** on a `"percentage"` expense and rejected on any other `splitType` (`CHECKLIST.md` "Store the typed percentages", schema v15): the whole-number percents exactly as typed. Optional so an app predating it keeps working — and a percentage expense saved without it simply has none. Without them the client can only back-compute percents from the resolved `splits`, which on a tiny amount (a few paise of remainder against a total of a few rupees) can't recover what was typed. The server checks each percent is 1–100, nobody appears twice, every member exists, they sum to exactly 100, and they name exactly the members `splits` charges. Stored for display / re-edit; never feeds the balance math. **A server older than v15 rejects the key** (unknown keys are a 400), so the worker deploys before any app build that sends it.
 
 `category` is a free-form label and `categoryIcon` its SF Symbol name (`PalanceKit.ExpenseCategory`). Both optional — omitted entirely when unset. Stored verbatim, not validated against a list; the icon is stored per expense so any client renders it without a shared name→icon table.
 
@@ -252,7 +260,11 @@ CREATE TABLE expenses (
   deleted_by    TEXT,          -- nullable; memberId that deleted it, added in v6 — client-supplied, trusted like every other id here
   items         TEXT,          -- nullable JSON array of { id, name, amountMinor, participantIds } for an 'itemized' expense, added in v8; NULL otherwise
   attachments   TEXT,          -- nullable JSON array of R2 keys (expenses/<groupId>/<expenseId>/<id>) for receipt photos (CHECKLIST.md), added in v10; NULL when none
-  shares        TEXT           -- nullable JSON array of { memberId, weight } for a 'shares' expense (CHECKLIST.md), added in v11; NULL otherwise
+  shares        TEXT,          -- nullable JSON array of { memberId, weight } for a 'shares' expense (CHECKLIST.md), added in v11; NULL otherwise
+  payers        TEXT,          -- nullable JSON array of { memberId, amountMinor } for a multi-payer expense, added in v13
+  tax_minor     INTEGER,       -- itemized tax, added in v14
+  tip_minor     INTEGER,       -- itemized tip, added in v14
+  percentages   TEXT           -- nullable JSON array of { memberId, percent } for a 'percentage' expense, as typed, added in v15
 );
 
 CREATE TABLE expense_splits (
@@ -379,6 +391,8 @@ The UI should prevent invalid input, but the DO validates independently — neve
 - `splitType` is exactly `"equal"`, `"exact"`, `"percentage"`, `"itemized"`, or `"shares"`. It is descriptive only — the server never re-derives `splits` from it; `percentage`, `shares` and `itemized` splits arrive pre-resolved to minor units (`PalanceKit.Validation.percentageSplit` / `.sharesSplit` / `.itemizedSplit`), so the balance math is identical for all.
 - `items` is present **iff** `splitType` is `"itemized"` — each item has ≥1 participant, and the item amounts sum to `amountMinor` (`PalanceKit.Validation.validateItems`). The items are stored but never feed the balance math; `splits` does.
 - `shares` is present **iff** `splitType` is `"shares"` — ≥1 weight, none negative, a positive total (`PalanceKit.Validation.validateShares`). Stored for re-edit; never feeds the balance math.
+- `percentages` is optional on `"percentage"` and rejected otherwise — each 1–100, no duplicates, members exist, sum exactly 100, same member set as `splits` (`PalanceKit.Validation.validatePercentages` ↔ worker `assertPercentagesValid`). Stored for re-edit; never feeds the balance math.
+- Merging a duplicate member (`mergeMembers`) renames their id inside every stored breakdown — `shares`, `items[].participantIds`, `percentages` — as well as `payers` and `expense_splits`, so re-opening an expense never silently drops the merged person's part.
 - Reject unknown fields rather than silently ignoring them (fail loud during development).
 
 ---
@@ -445,6 +459,9 @@ The UI should prevent invalid input, but the DO validates independently — neve
 - **`10`** — `expenses.attachments` added (nullable JSON array of R2 keys). Plain `ADD COLUMN`, in place. Receipt photos (`CHECKLIST.md` "Photo attachment on an expense"); `NULL` for every existing expense. Each key is `expenses/<groupId>/<expenseId>/<id>`; a `PUT` that drops a key makes the route delete its R2 object (an expense never hard-deletes, so that's the only cleanup point).
 - **`11`** — `expenses.split_type`'s `CHECK` widened to allow `'shares'`, and `expenses.shares` (nullable JSON) added. Like v2/v8, SQLite can't alter a `CHECK` in place, so the migration rebuilds the `expenses` table — every v10 column plus `shares`, columns named explicitly in the copy. Powers split-by-shares (`CHECKLIST.md`); `shares` is the `{ memberId, weight }` ratio breakdown, `NULL` for every non-shares expense.
 
+- **`12`–`14`** — `comments` table (v12), `expenses.payers` (v13), `expenses.tax_minor`/`.tip_minor` (v14); see `worker/src/lib/schema.ts` for each step.
+- **`15`** — `expenses.percentages` (nullable JSON) added, a plain `ADD COLUMN` (`CHECKLIST.md` "Store the typed percentages"). `NULL` for every pre-existing expense, where the client falls back to back-computing percents from `splits`.
+
 `group_meta` separately gained an `access_token` row (2026-09-05, §1/§2/§8), an `emoji` row (2026-09-07, §2 — the group's visual-identity emoji), an `archived_at` row (2026-09-09, §2 — the archive flag), a `default_split` row (2026-09-09, §2 — the saved default split JSON), and a `cover_key` row (2026-09-10, §2 — the group cover image's R2 key, `CHECKLIST.md`) — all new keys in an existing key/value table, not schema-version bumps; a pre-existing group simply has none of them until it sets one.
 
 The **`UserDO`** (one per signed-in identity, `idFromName("<provider>:" + sub)`, added with the accounts phase) carries its own `USER_SCHEMA_VERSION` (currently `1`): a `user_meta` key/value table and a `memberships` table (`group_id` PK, `member_id`, `display_name`, `added_at`). `user_meta` separately gained an `avatar_uploaded_at` key (2026-09-10, `CHECKLIST.md` "Profile photos") — presence is the "has a photo" bit the claim path reads; a new key, not a version bump. It's a self-healing index the Worker updates *after* the authoritative `GroupDO` write — never the source of truth for the membership↔identity link. No migrations yet; a `UserDO` is created fresh on first sign-in.
@@ -453,6 +470,7 @@ The **`UserDO`** (one per signed-in identity, `idFromName("<provider>:" + sub)`,
 
 ## 11. Testing strategy
 
+- **Shared split scenarios (`test-fixtures/splits/`):** hand-written real-world expenses with hand-worked payers/splits/balances. `PalanceKitTests/SplitScenarioTests` runs each from form input through `ExpenseDraft` to balances; `worker/test/splits.test.ts` checks the server's validators accept the same payers/splits/percentages and the TS balance math agrees; `worker/test/splits-e2e.test.ts` POSTs each through the real router and compares `GET` balances. `ExpenseDraftInvariantTests` adds 2,000 seeded random drafts per split type against the always-true rules (exact sums, no negatives, deterministic, fair remainders, zero-sum ledger, save → reopen → save unchanged).
 - **Unit (Vitest, no Cloudflare involved):** `balances.ts`, `simplify.ts` — triangle-collapse and single-payer-N-1 cases, rounding/remainder allocation, idempotency, and random fuzz testing (sum of payments equals sum of positive balances). These are the tests that matter most; they're pure functions and should be exhaustively covered.
 - **Integration (`wrangler dev` / Miniflare):** exercise the actual HTTP routes against a real (local) Durable Object — covers request parsing, validation, persistence, and the Registry lookup flow end-to-end.
 - **What can't be meaningfully tested locally:** the single-writer serialization guarantee in §4 is a property of Cloudflare's production runtime, not something Miniflare can prove under real concurrent load. Trust the platform guarantee rather than trying to simulate a race condition locally — if this ever needs verifying, it'd be a small production load test, not a unit test.

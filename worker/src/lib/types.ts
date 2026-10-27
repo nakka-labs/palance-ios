@@ -58,6 +58,13 @@ export interface ShareWeight {
   weight: number;
 }
 
+/** One member's whole-number percent on a `percentage` expense, exactly as
+ * typed (`CHECKLIST.md` "Store the typed percentages"). */
+export interface PercentageWeight {
+  memberId: string;
+  percent: number;
+}
+
 /** One line of an itemized expense (`FEATURE_BACKLOG.md` "Itemized expense
  * entry") — mirrors `PalanceKit.LineItem`. Present only on an `itemized`
  * expense. `participantIds` is never empty; the items together sum to the
@@ -92,6 +99,12 @@ export interface Expense {
    * every other `splitType`. `splits` stays the source of truth for balances —
    * this is the breakdown that produced them, kept for re-edit. */
   shares?: ShareWeight[];
+  /** The whole-number percents a `percentage` expense was typed as; absent for
+   * every other `splitType`, and for percentage expenses saved before
+   * schema v15 (or by an app that predates it). `splits` stays the source of
+   * truth for balances — this is kept so re-editing shows exactly what was
+   * typed rather than percents back-computed from rounded amounts. */
+  percentages?: PercentageWeight[];
   /** Tax / tip on an `itemized` expense (`CHECKLIST.md` "Tax/tip proportional
    * split on itemized expenses"); absent for every other `splitType`, or an
    * itemized expense with neither set. Distributed proportionally by each

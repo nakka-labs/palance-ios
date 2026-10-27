@@ -451,13 +451,14 @@ describe("GroupDO", () => {
       const version = sql
         .exec<{ value: string }>("SELECT value FROM group_meta WHERE key = 'schema_version'")
         .toArray()[0]?.value;
-      expect(version).toBe("14");
+      expect(version).toBe("15");
 
       // The legacy expense survived the v2 + v8 + v11 rebuilds, gained null
       // category columns, had its currency backfilled from the group (USD),
       // gained null deleted_at/deleted_by (v6), a null `items` column (v8), a
       // null `attachments` column (v10), a null `shares` column (v11), a null
-      // `payers` column (v13), and null `tax_minor`/`tip_minor` columns (v14).
+      // `payers` column (v13), null `tax_minor`/`tip_minor` columns (v14), and
+      // a null `percentages` column (v15).
       const legacy = sql
         .exec<{
           category: string | null;
@@ -471,8 +472,9 @@ describe("GroupDO", () => {
           payers: string | null;
           tax_minor: number | null;
           tip_minor: number | null;
+          percentages: string | null;
         }>(
-          "SELECT category, category_icon, currency, deleted_at, deleted_by, items, attachments, shares, payers, tax_minor, tip_minor FROM expenses WHERE id = 'old-1'",
+          "SELECT category, category_icon, currency, deleted_at, deleted_by, items, attachments, shares, payers, tax_minor, tip_minor, percentages FROM expenses WHERE id = 'old-1'",
         )
         .toArray()[0];
       expect(legacy).toEqual({
@@ -487,6 +489,7 @@ describe("GroupDO", () => {
         shares: null,
         tax_minor: null,
         tip_minor: null,
+        percentages: null,
       });
 
       // The legacy member gained a null identity_sub (v5) — i.e. it's a
@@ -600,6 +603,19 @@ describe("GroupDO", () => {
       expect(rt.value.expense.taxMinor).toBe(60);
       expect(rt.value.expense.tipMinor).toBe(40);
     }
+
+    // percentages (needs the v15 `percentages` column) post-migration.
+    const rpc = await g.addExpense({
+      payers: [{ memberId: ana.id, amountMinor: 500 }],
+      amountMinor: 500,
+      description: "Fuel",
+      date: "2026-01-06T00:00:00Z",
+      splitType: "percentage",
+      splits: [{ memberId: ana.id, amountMinor: 500 }],
+      percentages: [{ memberId: ana.id, percent: 100 }],
+    });
+    expect(rpc.ok).toBe(true);
+    if (rpc.ok) expect(rpc.value.expense.percentages).toEqual([{ memberId: ana.id, percent: 100 }]);
   });
 
   describe("comments (CHECKLIST.md — Comments on an expense)", () => {
@@ -814,6 +830,125 @@ describe("GroupDO", () => {
 
       expect(await g.memberIdentity(ana.id)).toEqual({ sub: "google:indra2-sub" });
       expect((await g.claimable()).members.map((m) => m.id)).not.toContain(ana.id);
+    });
+  });
+
+  describe('percentages (CHECKLIST.md "Store the typed percentages")', () => {
+    async function setup(name: string, code: string) {
+      const g = group(name);
+      const { member: ana } = await g.initGroup("Trip", "INR", "Ana", code);
+      const { member: ben } = await g.addMember("Ben");
+      const { member: cal } = await g.addMember("Cal");
+      return { g, ana, ben, cal };
+    }
+
+    /** ₹0.06 at 34 / 33 / 33, Ana paid — the amount the invariant tests showed
+     * can't be reconstructed from splits alone. */
+    function tinyPercentExpense(ana: string, ben: string, cal: string) {
+      return {
+        payers: [{ memberId: ana, amountMinor: 6 }],
+        amountMinor: 6,
+        description: "Gum",
+        date: "2026-01-01T00:00:00Z",
+        splitType: "percentage" as const,
+        splits: [
+          { memberId: ana, amountMinor: 4 },
+          { memberId: ben, amountMinor: 1 },
+          { memberId: cal, amountMinor: 1 },
+        ],
+        percentages: [
+          { memberId: ana, percent: 34 },
+          { memberId: ben, percent: 33 },
+          { memberId: cal, percent: 33 },
+        ],
+      };
+    }
+
+    it("stores the typed percentages and returns them as typed", async () => {
+      const { g, ana, ben, cal } = await setup("g-pct-store", "PCS234");
+      const r = await g.addExpense(tinyPercentExpense(ana.id, ben.id, cal.id));
+      expect(r.ok).toBe(true);
+      const stored = (await g.getState()).expenses[0]!;
+      expect(stored.percentages).toEqual([
+        { memberId: ana.id, percent: 34 },
+        { memberId: ben.id, percent: 33 },
+        { memberId: cal.id, percent: 33 },
+      ]);
+    });
+
+    it("an edit replaces the stored percentages", async () => {
+      const { g, ana, ben, cal } = await setup("g-pct-edit", "PCE234");
+      const r = await g.addExpense(tinyPercentExpense(ana.id, ben.id, cal.id));
+      if (!r.ok) throw new Error("add failed");
+      const edit = await g.updateExpense(r.value.expense.id, {
+        ...tinyPercentExpense(ana.id, ben.id, cal.id),
+        amountMinor: 1000,
+        payers: [{ memberId: ana.id, amountMinor: 1000 }],
+        splits: [{ memberId: ana.id, amountMinor: 500 }, { memberId: ben.id, amountMinor: 500 }],
+        percentages: [{ memberId: ana.id, percent: 50 }, { memberId: ben.id, percent: 50 }],
+      });
+      expect(edit.ok).toBe(true);
+      expect((await g.getState()).expenses[0]!.percentages).toEqual([
+        { memberId: ana.id, percent: 50 },
+        { memberId: ben.id, percent: 50 },
+      ]);
+    });
+
+    it("a percentage expense without percentages (an older app) is still accepted, and returns none", async () => {
+      const { g, ana, ben, cal } = await setup("g-pct-legacy", "PCL234");
+      const { percentages: _, ...legacy } = tinyPercentExpense(ana.id, ben.id, cal.id);
+      const r = await g.addExpense(legacy);
+      expect(r.ok).toBe(true);
+      expect((await g.getState()).expenses[0]!).not.toHaveProperty("percentages");
+    });
+
+    it.each([
+      ["don't add up to 100", (a: string, b: string, c: string) => [{ memberId: a, percent: 34 }, { memberId: b, percent: 33 }, { memberId: c, percent: 32 }], "SPLIT_MISMATCH"],
+      ["include a non-member", (a: string, b: string, _c: string) => [{ memberId: a, percent: 34 }, { memberId: b, percent: 33 }, { memberId: "ghost", percent: 33 }], "UNKNOWN_MEMBER"],
+      ["leave out someone the splits charge", (a: string, b: string, _c: string) => [{ memberId: a, percent: 50 }, { memberId: b, percent: 50 }], "SPLIT_MISMATCH"],
+      ["give someone 0%", (a: string, b: string, c: string) => [{ memberId: a, percent: 67 }, { memberId: b, percent: 33 }, { memberId: c, percent: 0 }], "SPLIT_MISMATCH"],
+      ["name someone twice", (a: string, b: string, _c: string) => [{ memberId: a, percent: 34 }, { memberId: b, percent: 33 }, { memberId: b, percent: 33 }], "SPLIT_MISMATCH"],
+    ])("refuses percentages that %s", async (_label, make, code) => {
+      const { g, ana, ben, cal } = await setup(`g-pct-bad-${code}-${Math.random()}`, "PCB234");
+      const r = await g.addExpense({ ...tinyPercentExpense(ana.id, ben.id, cal.id), percentages: make(ana.id, ben.id, cal.id) });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe(code);
+    });
+  });
+
+  describe("mergeMembers rewrites stored member ids in expense breakdowns", () => {
+    it("shares weights, itemized participants, and percentages follow the merged member", async () => {
+      const g = group("g-merge-breakdowns");
+      const { member: ana } = await g.initGroup("Trip", "INR", "Ana", "MBD234");
+      const { member: ben } = await g.addMember("Ben");
+      const { member: ben2 } = await g.addMember("Ben (dup)");
+
+      await g.addExpense({
+        payers: [{ memberId: ana.id, amountMinor: 300 }], amountMinor: 300, description: "Rent",
+        date: "2026-01-01T00:00:00Z", splitType: "shares",
+        splits: [{ memberId: ana.id, amountMinor: 200 }, { memberId: ben2.id, amountMinor: 100 }],
+        shares: [{ memberId: ana.id, weight: 2 }, { memberId: ben2.id, weight: 1 }],
+      });
+      await g.addExpense({
+        payers: [{ memberId: ana.id, amountMinor: 300 }], amountMinor: 300, description: "Pizza",
+        date: "2026-01-02T00:00:00Z", splitType: "itemized",
+        splits: [{ memberId: ana.id, amountMinor: 150 }, { memberId: ben2.id, amountMinor: 150 }],
+        items: [{ id: "li1", name: "Pizza", amountMinor: 300, participantIds: [ana.id, ben2.id] }],
+      });
+      await g.addExpense({
+        payers: [{ memberId: ana.id, amountMinor: 100 }], amountMinor: 100, description: "Tea",
+        date: "2026-01-03T00:00:00Z", splitType: "percentage",
+        splits: [{ memberId: ana.id, amountMinor: 60 }, { memberId: ben2.id, amountMinor: 40 }],
+        percentages: [{ memberId: ana.id, percent: 60 }, { memberId: ben2.id, percent: 40 }],
+      });
+
+      const r = await g.mergeMembers(ben.id, ben2.id);
+      expect(r.ok).toBe(true);
+
+      const [rent, pizza, tea] = (await g.getState()).expenses;
+      expect(rent!.shares).toEqual([{ memberId: ana.id, weight: 2 }, { memberId: ben.id, weight: 1 }]);
+      expect(pizza!.items![0]!.participantIds).toEqual([ana.id, ben.id]);
+      expect(tea!.percentages).toEqual([{ memberId: ana.id, percent: 60 }, { memberId: ben.id, percent: 40 }]);
     });
   });
 

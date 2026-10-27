@@ -59,7 +59,12 @@ CREATE TABLE IF NOT EXISTS expenses (
   -- already distribute these proportionally by each participant's own item
   -- subtotal, not evenly) stay authoritative for balances.
   tax_minor     INTEGER,
-  tip_minor     INTEGER
+  tip_minor     INTEGER,
+  -- JSON array of { memberId, percent } for a 'percentage' expense — the
+  -- whole-number percents as typed (CHECKLIST.md "Store the typed
+  -- percentages"); NULL otherwise, and for percentage expenses saved before
+  -- v15. Written whole with the expense; expense_splits stays authoritative.
+  percentages   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS expense_splits (
@@ -304,5 +309,10 @@ export const META_KEYS = {
  *          `NULL` for every pre-existing expense (itemized or not); the
  *          resolved `expense_splits` a pre-existing itemized expense already
  *          has are unaffected either way.
+ *  - `15` → `expenses.percentages` (nullable JSON) added (`CHECKLIST.md`
+ *          "Store the typed percentages"). Plain `ALTER TABLE ... ADD
+ *          COLUMN`. `NULL` for every pre-existing expense: the client falls
+ *          back to back-computing percents from the resolved splits, which
+ *          is what it always did.
  */
-export const SCHEMA_VERSION = "14";
+export const SCHEMA_VERSION = "15";

@@ -1109,6 +1109,7 @@ struct AddExpenseView: View {
                 splits: resolved.splits,
                 items: resolved.items,
                 shares: resolved.shares,
+                percentages: resolved.percentages,
                 taxMinor: resolved.taxMinor,
                 tipMinor: resolved.tipMinor,
                 category: isCategorised ? category.name : nil,

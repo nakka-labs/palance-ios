@@ -402,6 +402,7 @@ function parseExpenseBody(body: Record<string, unknown>, allowId: boolean): AddE
     "splits",
     "items",
     "shares",
+    "percentages",
     "taxMinor",
     "tipMinor",
     "category",
@@ -475,6 +476,24 @@ function parseExpenseBody(body: Record<string, unknown>, allowId: boolean): AddE
       })
     : undefined;
 
+  // `percentages` (`CHECKLIST.md` "Store the typed percentages") — optional
+  // on a `percentage` expense, so an app that predates it keeps working;
+  // rejected on any other `splitType`.
+  const hasPercentages = body.percentages !== undefined;
+  if (splitType !== "percentage" && hasPercentages) {
+    throw new BadRequestError('Field "percentages" is only valid when "splitType" is "percentage".');
+  }
+  const percentages = hasPercentages
+    ? requireArray(body, "percentages").map((raw, i) => {
+        assertPlainObject(raw, `percentages[${i}]`);
+        rejectUnknownKeys(raw, ["memberId", "percent"]);
+        return {
+          memberId: requireString(raw, "memberId"),
+          percent: requireInteger(raw, "percent"),
+        };
+      })
+    : undefined;
+
   // `taxMinor`/`tipMinor` (`CHECKLIST.md` "Tax/tip proportional split on
   // itemized expenses") only mean anything alongside `items` — optional even
   // then (an itemized expense needn't have either), rejected on any other
@@ -517,6 +536,7 @@ function parseExpenseBody(body: Record<string, unknown>, allowId: boolean): AddE
     splits,
     items,
     shares,
+    percentages,
     taxMinor,
     tipMinor,
     category: optionalString(body, "category"),
