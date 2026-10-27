@@ -294,14 +294,20 @@ public struct ExpenseDraft: Equatable, Sendable {
         )
 
         if expense.splitType == .percentage, expense.amountMinor > 0 {
-            // Percentages aren't stored — only the resolved minor-unit shares.
-            // Back-computed per member, rounded.
-            var percent: [String: String] = [:]
-            for split in expense.splits {
-                let pct = (Double(split.amountMinor) / Double(expense.amountMinor) * 100).rounded()
-                percent[split.memberId] = String(Int(pct))
-            }
-            percentText = percent
+            // Percentages aren't stored — only the resolved minor-unit shares —
+            // so they're back-computed by largest remainder: everyone's floor,
+            // then the missing points to the biggest fractions (ties → member
+            // order). Always sums to exactly 100, so a re-opened expense can
+            // always be saved; it used to round each member independently,
+            // which on a tiny amount could land on 99 or 101 and lock Save
+            // (found by `ExpenseDraftInvariantTests`). Integer-only.
+            let ordered = memberIds.compactMap { id in expense.splits.first { $0.memberId == id } }
+            let scaled = ordered.map { $0.amountMinor * 100 }
+            var points = scaled.map { $0 / expense.amountMinor }
+            let missing = 100 - Int(points.reduce(0, +))
+            let byFraction = scaled.indices.sorted { scaled[$0] % expense.amountMinor > scaled[$1] % expense.amountMinor }
+            for index in byFraction.prefix(max(0, missing)) { points[index] += 1 }
+            percentText = Dictionary(uniqueKeysWithValues: zip(ordered.map(\.memberId), points.map { String($0) }))
         }
 
         if expense.splitType == .itemized, let items = expense.items {

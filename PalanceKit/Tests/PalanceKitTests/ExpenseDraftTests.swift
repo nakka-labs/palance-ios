@@ -286,6 +286,22 @@ struct ExpenseDraftTests {
         #expect(try roundTrips(d))
     }
 
+    @Test("re-opening a percentage split on a tiny amount still adds up to 100% (found by the invariant tests)")
+    func roundTripPercentTinyAmount() throws {
+        // ₹0.06 at 34 / 33 / 33, Asha paid → 2 / 1 / 1 paise plus 2 paise of
+        // remainder to Asha = 4 / 1 / 1. Rounding each member independently
+        // gave 67 + 17 + 17 = 101% and locked Save; largest remainder gives
+        // 67 / 17 / 16 (ties broken by member order).
+        var d = draft([Self.asha, Self.ben, Self.chen], paidBy: Self.asha, amount: "0.06")
+        d.splitType = .percentage
+        d.percentText = [Self.asha: "34", Self.ben: "33", Self.chen: "33"]
+        let first = try d.resolve()
+        #expect(first.splits == [split(Self.asha, 4), split(Self.ben, 1), split(Self.chen, 1)])
+        let reopened = ExpenseDraft(rehydrating: saved(first, .percentage), memberIds: d.memberIds, fallbackPayerId: Self.asha, keepItemIds: true)
+        #expect(reopened.percentText == [Self.asha: "67", Self.ben: "17", Self.chen: "16"])
+        #expect(reopened.canResolve)
+    }
+
     @Test("duplicating an itemized expense gives its line items fresh ids")
     func duplicateFreshItemIds() throws {
         var d = draft([Self.asha, Self.ben], paidBy: Self.asha, amount: "30")

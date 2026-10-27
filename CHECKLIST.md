@@ -94,11 +94,23 @@ Steps, each its own commit with `make check` green:
       unreachable through the Save button, but the logic contract
       disagreed with itself. Now throws `ValidationError.percentageTotal`.
       **Owner to-do:** add your real cases as new files.
-- [ ] **4. Invariant tests.** Seeded, dependency-free random drafts for
+- [x] **4. Invariant tests.** Seeded, dependency-free random drafts for
       every split type: splits sum to the amount exactly, no negative
       share, deterministic, remainder < member count and lands on the
       documented recipient, `resolve(ExpenseDraft(editing: resolved))`
       round-trips.
+      Done 2026-10-27: `ExpenseDraftInvariantTests` — 2,000 seeded random
+      drafts per split type (10,000 total, <1 s), six rules each. **Caught
+      a real bug:** re-opening a *percentage* expense on a tiny amount
+      could back-compute percents to 99 or 101 and lock Save (137 of
+      2,000 runs, all ≤ ₹4.92). Fixed with an integer-only largest-
+      remainder back-computation (also drops the `Double` math money code
+      shouldn't use); regression test with a hand-worked ₹0.06 case.
+      Residual, by design until percents are stored: below
+      200 × (people − 1) paise a re-opened percentage split can show
+      slightly different whole percents than were typed — still sums to
+      100 and saves. **Owner call:** store typed percents on the wire
+      (like `shares`) to close that fully — a worker + client change.
 - [ ] **5. End-to-end in the worker suite.** Each scenario POSTed
       through the real router into a Durable Object, then
       `GET /api/groups/:id` balances compared to the fixture.
