@@ -27,12 +27,18 @@ struct RemindHistoryTests {
 
     // MARK: - relativeLabel
 
-    @Test("relativeLabel", arguments: [
-        (TimeInterval(0), "Just now"), (TimeInterval(30), "Just now"),
-        (TimeInterval(5 * 60), "5m ago"), (TimeInterval(59 * 60), "59m ago"),
-        (TimeInterval(2 * 3600), "2h ago"), (TimeInterval(23 * 3600), "23h ago"),
-        (TimeInterval(3 * 86_400), "3d ago"),
-    ])
+    /// Explicitly typed, plain-literal cases outside the macro — an inline
+    /// array of `(TimeInterval(5 * 60), "…")` tuples in `@Test(arguments:)`
+    /// timed out the Linux CI type-checker (Swift 6.0) on every push from
+    /// 2026-09-13 on, while the Mac's newer compiler was fine.
+    static let relativeLabelCases: [(TimeInterval, String)] = [
+        (0, "Just now"), (30, "Just now"),
+        (300, "5m ago"), (3_540, "59m ago"),           // 5 min, 59 min
+        (7_200, "2h ago"), (82_800, "23h ago"),        // 2 h, 23 h
+        (259_200, "3d ago"),                           // 3 days
+    ]
+
+    @Test("relativeLabel", arguments: relativeLabelCases)
     func testRelativeLabel(elapsed: TimeInterval, expected: String) {
         #expect(RemindHistory.relativeLabel(since: t0, now: t0.addingTimeInterval(elapsed)) == expected)
     }
