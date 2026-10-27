@@ -175,6 +175,40 @@ final class AuthViewModelTests: XCTestCase {
         XCTAssertEqual(knownGroups.all().map(\.groupId), ["g9"])
     }
 
+    /// `hasLoadedGroups` is what lets the balance hero say "not a member"
+    /// instead of "settled" (`BalanceHeroState`) — it must be false until the
+    /// list really arrives, true after, and false again on sign-out.
+    @MainActor
+    func testHasLoadedGroupsTracksTheMembershipList() async {
+        let vm = makeVM(
+            store: InMemorySessionStore(session(expiresIn: 20 * day)),
+            transport: StubTransport(statusCode: 200, json: #"{"groups":[]}"#),
+            standing: .authorized,
+            knownGroups: InMemoryKnownGroupsStore()
+        )
+        XCTAssertFalse(vm.hasLoadedGroups)
+
+        await vm.handleLaunch()
+        XCTAssertTrue(vm.hasLoadedGroups, "an empty list is still a loaded list — that's the 'not a member' case")
+
+        vm.signOut()
+        XCTAssertFalse(vm.hasLoadedGroups)
+    }
+
+    @MainActor
+    func testHasLoadedGroupsStaysFalseWhenTheFetchFails() async {
+        let vm = makeVM(
+            store: InMemorySessionStore(session(expiresIn: 20 * day)),
+            transport: FailingTransport(),
+            standing: .authorized,
+            knownGroups: InMemoryKnownGroupsStore()
+        )
+
+        await vm.handleLaunch()
+
+        XCTAssertFalse(vm.hasLoadedGroups, "offline must read as 'unknown', never as 'not a member'")
+    }
+
     @MainActor
     func testSignOutClearsTheSessionEverywhere() async {
         let store = InMemorySessionStore(StoredSession(token: "t", provider: .apple, appleUserID: "u", expiresAt: Date(timeIntervalSinceNow: day)))

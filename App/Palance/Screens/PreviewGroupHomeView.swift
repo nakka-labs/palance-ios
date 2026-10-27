@@ -30,7 +30,7 @@ struct PreviewGroupHomeView: View {
 
             Section {
                 BalanceHeroView(
-                    balances: Self.myBalances,
+                    state: Self.myBalances.isEmpty ? .settled : .balances(Self.myBalances),
                     accent: GroupColor.color(forId: Self.groupId),
                     tint: GroupColor.tint(forId: Self.groupId),
                     onSettleUp: prompt

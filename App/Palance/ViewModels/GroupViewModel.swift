@@ -98,6 +98,17 @@ final class GroupViewModel {
 
     /// The current member's net balance in every currency they have activity in
     /// (nonzero only — an empty array means "all settled up").
+    /// What the balance hero says (`BalanceHeroState`) — distinguishes "not a
+    /// member of this group" from "settled", which `myBalances` alone can't.
+    var heroState: BalanceHeroState {
+        BalanceHeroState.resolve(
+            groupLoaded: state != nil,
+            membershipKnown: auth.hasLoadedGroups,
+            myMemberId: myIdentity?.memberId,
+            balances: state?.balances ?? []
+        )
+    }
+
     var myBalances: [Balance] {
         guard let me = myIdentity else { return [] }
         return balances(forMember: me.memberId)

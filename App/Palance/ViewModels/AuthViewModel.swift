@@ -73,6 +73,10 @@ final class AuthViewModel {
     /// store anymore). Also mirrored into `knownGroups` for the start screen's
     /// offline-friendly list.
     private(set) var groups: [GroupMembershipSummary] = []
+    /// Whether `groups` has been filled from the server at least once this
+    /// session — until then an absent group means "not known yet", not "not a
+    /// member" (`BalanceHeroState.resolve`'s `membershipKnown`).
+    private(set) var hasLoadedGroups = false
     private(set) var isBusy = false
     private(set) var errorMessage: String?
     /// The signed-in identity's own profile-photo key (`CHECKLIST.md` "Profile
@@ -421,6 +425,7 @@ final class AuthViewModel {
     /// start screen's list works even before the network round-trip resolves.
     private func applyGroups(_ summaries: [GroupMembershipSummary]) {
         groups = summaries
+        hasLoadedGroups = true
         for summary in summaries {
             // `hidden` only takes effect the first time this device learns
             // about the group — see `KnownGroupsStoring.remember`. This is
@@ -457,6 +462,7 @@ final class AuthViewModel {
         sessionStore.clear()
         session = nil
         groups = []
+        hasLoadedGroups = false
         myAvatarKey = nil
     }
 

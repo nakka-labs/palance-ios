@@ -5,28 +5,33 @@ import PalanceKit
 /// multi-currency a member can be owed in one currency and owe in another, so
 /// each currency gets its own line and they're never blended.
 struct BalanceHeroView: View {
-    /// The current member's nonzero balances, one per currency.
-    let balances: [Balance]
+    /// What to say (`BalanceHeroState` — decided and tested in PalanceKit,
+    /// not inferred here from an empty array).
+    let state: BalanceHeroState
     /// This group's formula accent (`CHECKLIST.md` "Per-group accent color")
-    /// — tints the Settle Up button, the card's one accent action.
+    /// — tints the card's one accent action (Settle Up, or Claim Your Spot).
     var accent: Color?
     /// The group's flat tint for the card fill (`GroupColor.tint(forId:)`),
     /// so the focal card carries the group's identity. `nil` → a neutral
     /// `Surface.raised` card.
     var tint: Color?
-    /// The group's state hasn't loaded yet — show a redacted placeholder in
-    /// the accent colour rather than a real balance (`CHECKLIST.md`
-    /// "Spring/matched-geometry transition").
-    var isLoading = false
     /// A persistent "Settle Up" CTA on the card itself (`CHECKLIST.md` UX
-    /// audit [6] step 4) — used to be a separate row in Group Home's
-    /// Members/Activity list; `nil` (the default) hides it, e.g. while
-    /// `balances` is empty (nothing to settle for the signed-in member).
+    /// audit [6] step 4); `nil` hides it.
     var onSettleUp: (() -> Void)?
+    /// Offered when this identity hasn't claimed a member here
+    /// (`BalanceHeroState.notAMember`) — opens `ClaimMemberView`.
+    var onClaim: (() -> Void)?
+
+    /// The `.balances` payload, or empty.
+    private var balances: [Balance] {
+        if case .balances(let balances) = state { return balances }
+        return []
+    }
 
     var body: some View {
         VStack(spacing: 8) {
-            if isLoading {
+            switch state {
+            case .loading:
                 Text("Your balance")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -35,20 +40,19 @@ struct BalanceHeroView: View {
                 Text("₹0,000")
                     .font(heroFont)
                     .redacted(reason: .placeholder)
-            } else if balances.isEmpty {
-                // The card's whole message here, not a label above a number —
-                // so Body, not Secondary (`DESIGN_BIBLE.md` §9 rule 3).
-                Text("You're all settled up")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
+            case .notAMember:
+                // Was "You're all settled up" — wrong whenever the Members
+                // list showed real balances (`CHECKLIST.md` "Test framework
+                // rebuild").
+                message("You're not in this group yet")
+                if let onClaim {
+                    accentButton("Claim Your Spot", systemImage: "person.crop.circle.badge.plus", action: onClaim)
+                }
+            case .settled:
+                message("You're all settled up")
+            case .balances(let balances):
                 // `.fixedSize` so this always wraps in full rather than
-                // truncating (`CHECKLIST.md` "UI audit, fresh eyes pass" —
-                // "You are owed" clipped to "You are o…" at the largest
-                // system text size, since the card's own height used to be
-                // fixed regardless of content).
+                // truncating (`CHECKLIST.md` "UI audit, fresh eyes pass").
                 Text(balances.count == 1 ? headline(for: balances[0]) : "Your balance")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -64,13 +68,7 @@ struct BalanceHeroView: View {
                     }
                 }
                 if let onSettleUp {
-                    Button(action: onSettleUp) {
-                        Label("Settle Up", systemImage: "checkmark.circle")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent ?? .accentColor)
-                    .controlSize(.small)
-                    .padding(.top, 6)
+                    accentButton("Settle Up", systemImage: "checkmark.circle", action: onSettleUp)
                 }
             }
         }
@@ -95,6 +93,27 @@ struct BalanceHeroView: View {
     /// and cramped ₹ read a touch calculator-ish at this size — owner call);
     /// still tabular so it doesn't jiggle as balances change.
     private var heroFont: Font { .hero }
+
+    /// The card's whole message when there's no number to show — Body, not
+    /// Secondary (`DESIGN_BIBLE.md` §9 rule 3).
+    private func message(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The card's one accent action (§9 rule 6).
+    private func accentButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(accent ?? .accentColor)
+        .controlSize(.small)
+        .padding(.top, 6)
+    }
 
     private func headline(for balance: Balance) -> String {
         balance.netMinor > 0 ? "You are owed" : "You owe"

@@ -45,6 +45,9 @@ struct GroupHomeView: View {
     @State private var pendingDelete: ActivityItem?
     @State private var isPresentingAddExpense = false
     @State private var isPresentingSettleUp = false
+    /// "Claim Your Spot" from the hero when this identity isn't a member here
+    /// (`BalanceHeroState.notAMember`).
+    @State private var isPresentingClaim = false
     @State private var isPresentingImport = false
     @State private var isPresentingGroupSettings = false
     @State private var isPresentingRecentlyDeleted = false
@@ -214,15 +217,15 @@ struct GroupHomeView: View {
             // "Spring/matched-geometry transition").
             Section {
                 BalanceHeroView(
-                    balances: viewModel.myBalances,
+                    state: viewModel.heroState,
                     accent: GroupColor.color(forId: viewModel.groupId),
                     tint: GroupColor.tint(forId: viewModel.groupId),
-                    isLoading: viewModel.state == nil,
                     // Promoted onto the card itself, replacing the separate
                     // "Settle Up" row below (`CHECKLIST.md` UX audit [6] step
                     // 4) — shown only when the signed-in member actually has
                     // something to settle, same gate the row used to have.
-                    onSettleUp: viewModel.myBalances.isEmpty ? nil : { isPresentingSettleUp = true }
+                    onSettleUp: viewModel.myBalances.isEmpty ? nil : { isPresentingSettleUp = true },
+                    onClaim: { isPresentingClaim = true }
                 )
             }
             .listRowInsets(EdgeInsets())
@@ -525,6 +528,20 @@ struct GroupHomeView: View {
                 )
             }
             .materialSheet()
+        }
+        .sheet(isPresented: $isPresentingClaim) {
+            NavigationStack {
+                // Claiming refreshes `auth.groups`, so `heroState` flips from
+                // `.notAMember` to the member's balances on its own.
+                ClaimMemberView(
+                    groupId: viewModel.groupId,
+                    client: client,
+                    accessToken: viewModel.accessToken,
+                    auth: auth,
+                    onClaimed: { _ in isPresentingClaim = false },
+                    onCancel: { isPresentingClaim = false }
+                )
+            }
         }
         .sheet(isPresented: $isPresentingSettleUp) {
             NavigationStack {

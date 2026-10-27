@@ -27,6 +27,64 @@
 
 ## To do
 
+### Test framework rebuild — owner request, 2026-10-27
+
+Trigger: owner saw "You're all settled up" on an equal 2-person split.
+Root cause wasn't the split math — the expense saved correctly and the
+Members list showed it — but `GroupViewModel.myBalances` returns `[]`
+when the signed-in identity hasn't claimed a member in the group (here:
+signed in with Google, group claimed by the Apple identity), and the hero
+reads `[]` as "settled". Same guard silently skips the iCloud backup,
+which is why Settings still said "last synced 7 days ago". Both are
+UI-state decisions living in app code with no tests — the same gap as
+split *assembly*.
+
+Audit of what exists: 41 kit test files (Swift Testing) + 22 app test
+files; the `Validation` split primitives are well covered (88 tests);
+`test-fixtures/balances/` (9 vectors) keeps the Swift and worker balance
+math in parity. Gaps: (1) turning form input into splits — included
+members, parsing exact/percent text, multi-payer remainder recipient,
+re-opening an expense for edit — lives in `AddExpenseView` with zero
+tests; (2) no invariant/property tests, only examples; (3) no shared
+split vectors, only balance vectors; (4) no end-to-end test from a
+request through the API to the resulting balances; (5) Linux CI's
+Swift 6.0 had been red six weeks unnoticed (fixed 2026-10-27,
+`9967b9e`) — `make check` runs the Mac's newer compiler only.
+
+Steps, each its own commit with `make check` green:
+- [x] **1. Hero state as a tested pure function.** `BalanceHeroState`
+      in PalanceKit (loading / not a member / settled / balances) +
+      `AuthViewModel.hasLoadedGroups` so "not a member" is never shown
+      before the membership list arrives. The card offers "Claim Your
+      Spot" (`ClaimMemberView`) instead of claiming "settled".
+      Done 2026-10-27: `BalanceHeroStateTests` (6, kit — written first,
+      failed, then passed) incl. the exact owner case; 2 app tests pin
+      `hasLoadedGroups` (true on an empty-but-loaded list, false offline
+      and after sign-out). Offline now shows the loading placeholder, not
+      a false "settled".
+- [ ] **2. `ExpenseDraft` in PalanceKit.** Everything `AddExpenseView.save()`
+      does to turn form state into `payers` + `splits` (+ `items`/`shares`)
+      moves into a pure `ExpenseDraft.resolve() -> Result<…, DraftError>`,
+      plus `ExpenseDraft(editing:)` for the reverse. The view binds to it;
+      no behavior change, proven by tests written against the current
+      behavior first.
+- [ ] **3. Shared split scenarios.** `test-fixtures/splits/*.json` — a
+      readable catalogue (draft in → splits out → balances out), seeded
+      with the owner's real cases (dinner for 5 with one skipping
+      drinks, two payers, percentages summing to 99, ₹100 ÷ 3, …). Swift
+      runs draft→splits→balances; the worker runs splits→balances.
+- [ ] **4. Invariant tests.** Seeded, dependency-free random drafts for
+      every split type: splits sum to the amount exactly, no negative
+      share, deterministic, remainder < member count and lands on the
+      documented recipient, `resolve(ExpenseDraft(editing: resolved))`
+      round-trips.
+- [ ] **5. End-to-end in the worker suite.** Each scenario POSTed
+      through the real router into a Durable Object, then
+      `GET /api/groups/:id` balances compared to the fixture.
+- [ ] **6. Close the CI gap.** Pin the CI Swift version to match local
+      (or add the Linux toolchain to `make check` via a container) so a
+      Linux-only compile failure can't hide again.
+
 ### Ground-up rename: ClanTab → Palance — new bundle ID, new ASC app, 2026-09-27
 
 Owner decision 2026-09-27: full rename, new bundle ID
