@@ -218,6 +218,10 @@ public struct ExpenseDraft: Equatable, Sendable {
                 .map { (memberId: $0, weight: percent(for: $0)) }
                 .filter { $0.weight > 0 }
             guard !weights.isEmpty else { throw ValidationError.emptySplits }
+            // Same rule as `canResolve`. Without it, `percentageSplit` would
+            // quietly treat 33 / 33 / 33 as thirds (it divides by the total
+            // weight) — found by the shared split scenarios (step 3).
+            guard percentTotal == 100 else { throw ValidationError.percentageTotal(percentTotal) }
             splits = Validation.percentageSplit(amountMinor: amountMinor, weights: weights, remainderRecipient: remainderRecipient)
         case .shares:
             let entered = memberIds

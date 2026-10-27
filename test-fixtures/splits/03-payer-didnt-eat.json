@@ -1,0 +1,33 @@
+{
+  "name": "Payer paid but didn't share",
+  "story": "Asha paid ₹90 for Ben and Chen's dinner; she didn't eat.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "90",
+  "paidBy": "asha",
+  "split": {
+    "type": "equal",
+    "only": [
+      "ben",
+      "chen"
+    ]
+  },
+  "expect": {
+    "payers": {
+      "asha": 9000
+    },
+    "splits": {
+      "ben": 4500,
+      "chen": 4500
+    },
+    "balances": {
+      "asha": 9000,
+      "ben": -4500,
+      "chen": -4500
+    }
+  }
+}

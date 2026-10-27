@@ -120,6 +120,7 @@ struct ExpenseDraftTests {
         d.percentText = [Self.asha: "33", Self.ben: "33", Self.chen: "33"]
         #expect(d.percentTotal == 99)
         #expect(!d.canResolve)
+        #expect(throws: ValidationError.percentageTotal(99)) { try d.resolve() }
     }
 
     @Test("33 / 33 / 34 percent of ₹100.01 → leftover paisa to the payer")

@@ -1,0 +1,34 @@
+{
+  "name": "Two people paid one bill",
+  "story": "A ₹100 bill split three ways; Asha put in ₹60 and Ben ₹40.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "100",
+  "payers": {
+    "asha": "60",
+    "ben": "40"
+  },
+  "split": {
+    "type": "equal"
+  },
+  "expect": {
+    "payers": {
+      "asha": 6000,
+      "ben": 4000
+    },
+    "splits": {
+      "asha": 3334,
+      "ben": 3333,
+      "chen": 3333
+    },
+    "balances": {
+      "asha": 2666,
+      "ben": 667,
+      "chen": -3333
+    }
+  }
+}

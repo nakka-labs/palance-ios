@@ -1,0 +1,35 @@
+{
+  "name": "Percentages 50 / 30 / 20",
+  "story": "Asha paid ₹1,000 for a trip booking split 50 / 30 / 20.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "1000",
+  "paidBy": "asha",
+  "split": {
+    "type": "percentage",
+    "percents": {
+      "asha": "50",
+      "ben": "30",
+      "chen": "20"
+    }
+  },
+  "expect": {
+    "payers": {
+      "asha": 100000
+    },
+    "splits": {
+      "asha": 50000,
+      "ben": 30000,
+      "chen": 20000
+    },
+    "balances": {
+      "asha": 50000,
+      "ben": -30000,
+      "chen": -20000
+    }
+  }
+}

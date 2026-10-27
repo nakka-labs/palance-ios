@@ -4,6 +4,6 @@ export default defineProject({
   test: {
     name: "logic",
     environment: "node",
-    include: ["test/logic.test.ts", "test/validation.test.ts"],
+    include: ["test/logic.test.ts", "test/validation.test.ts", "test/splits.test.ts"],
   },
 });

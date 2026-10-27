@@ -1,0 +1,27 @@
+{
+  "name": "₹100 split equally between two",
+  "story": "Asha paid ₹100 for something she and Ben shared equally. (The owner's 2026-10-27 report.)",
+  "members": [
+    "asha",
+    "ben"
+  ],
+  "currency": "INR",
+  "amount": "100",
+  "paidBy": "asha",
+  "split": {
+    "type": "equal"
+  },
+  "expect": {
+    "payers": {
+      "asha": 10000
+    },
+    "splits": {
+      "asha": 5000,
+      "ben": 5000
+    },
+    "balances": {
+      "asha": 5000,
+      "ben": -5000
+    }
+  }
+}

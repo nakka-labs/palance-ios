@@ -1,0 +1,27 @@
+{
+  "name": "Amount typed as a sum",
+  "story": "Asha typed '12 + 8.50' for two coffees she and Ben shared.",
+  "members": [
+    "asha",
+    "ben"
+  ],
+  "currency": "INR",
+  "amount": "12 + 8.50",
+  "paidBy": "asha",
+  "split": {
+    "type": "equal"
+  },
+  "expect": {
+    "payers": {
+      "asha": 2050
+    },
+    "splits": {
+      "asha": 1025,
+      "ben": 1025
+    },
+    "balances": {
+      "asha": 1025,
+      "ben": -1025
+    }
+  }
+}

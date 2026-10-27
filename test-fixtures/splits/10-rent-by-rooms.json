@@ -1,0 +1,35 @@
+{
+  "name": "Rent by shares 2 : 1 : 1",
+  "story": "Asha paid ₹30,000 rent; her room counts double.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "30000",
+  "paidBy": "asha",
+  "split": {
+    "type": "shares",
+    "weights": {
+      "asha": "2",
+      "ben": "1",
+      "chen": "1"
+    }
+  },
+  "expect": {
+    "payers": {
+      "asha": 3000000
+    },
+    "splits": {
+      "asha": 1500000,
+      "ben": 750000,
+      "chen": 750000
+    },
+    "balances": {
+      "asha": 1500000,
+      "ben": -750000,
+      "chen": -750000
+    }
+  }
+}

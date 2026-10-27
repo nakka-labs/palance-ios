@@ -38,6 +38,8 @@ func friendlyMessage(for error: Error) -> String {
             return "Add at least one payer."
         case .payerSumMismatch:
             return "The payers don't add up to the total amount."
+        case .percentageTotal(let total):
+            return "The percentages add up to \(total)%, not 100%."
         }
     }
     if let clientError = error as? PalanceClientError {

@@ -1,0 +1,40 @@
+{
+  "name": "Dinner for five, one skipped",
+  "story": "Chen paid ₹2,000.02 for dinner; everyone but Eli ate.",
+  "members": [
+    "asha",
+    "ben",
+    "chen",
+    "dev",
+    "eli"
+  ],
+  "currency": "INR",
+  "amount": "2000.02",
+  "paidBy": "chen",
+  "split": {
+    "type": "equal",
+    "only": [
+      "asha",
+      "ben",
+      "chen",
+      "dev"
+    ]
+  },
+  "expect": {
+    "payers": {
+      "chen": 200002
+    },
+    "splits": {
+      "asha": 50000,
+      "ben": 50000,
+      "chen": 50002,
+      "dev": 50000
+    },
+    "balances": {
+      "asha": -50000,
+      "ben": -50000,
+      "chen": 150000,
+      "dev": -50000
+    }
+  }
+}

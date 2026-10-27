@@ -1,0 +1,30 @@
+{
+  "name": "₹100 three ways — the odd paisa goes to the payer",
+  "story": "Ben paid ₹100 for a cab shared by three.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "100",
+  "paidBy": "ben",
+  "split": {
+    "type": "equal"
+  },
+  "expect": {
+    "payers": {
+      "ben": 10000
+    },
+    "splits": {
+      "asha": 3333,
+      "ben": 3334,
+      "chen": 3333
+    },
+    "balances": {
+      "asha": -3333,
+      "ben": 6666,
+      "chen": -3333
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "Percentages that leave a paisa over",
+  "story": "Ben paid ₹100.01, split 33 / 33 / 34.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "100.01",
+  "paidBy": "ben",
+  "split": {
+    "type": "percentage",
+    "percents": {
+      "asha": "33",
+      "ben": "33",
+      "chen": "34"
+    }
+  },
+  "expect": {
+    "payers": {
+      "ben": 10001
+    },
+    "splits": {
+      "asha": 3300,
+      "ben": 3301,
+      "chen": 3400
+    },
+    "balances": {
+      "asha": -3300,
+      "ben": 6700,
+      "chen": -3400
+    }
+  }
+}

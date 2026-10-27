@@ -21,6 +21,10 @@ public enum ValidationError: Error, Equatable, Sendable {
     case emptyPayers
     /// The payers' contributions don't sum to the expense amount.
     case payerSumMismatch(expected: Int64, actual: Int64)
+    /// A percentage split whose percents don't add up to exactly 100
+    /// (`ExpenseDraft.resolve()` — the server never sees percents, so this is
+    /// the only place it can be caught).
+    case percentageTotal(Int)
 }
 
 /// Split-sum validation and deterministic remainder distribution.

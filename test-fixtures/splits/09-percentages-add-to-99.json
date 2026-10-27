@@ -1,0 +1,23 @@
+{
+  "name": "Percentages adding to 99 can't be saved",
+  "story": "Someone typed 33 / 33 / 33 for a three-way split.",
+  "members": [
+    "asha",
+    "ben",
+    "chen"
+  ],
+  "currency": "INR",
+  "amount": "100",
+  "paidBy": "asha",
+  "split": {
+    "type": "percentage",
+    "percents": {
+      "asha": "33",
+      "ben": "33",
+      "chen": "33"
+    }
+  },
+  "expect": {
+    "cannotSave": true
+  }
+}

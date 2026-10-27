@@ -1,0 +1,45 @@
+{
+  "name": "Itemized bill with tax",
+  "story": "Pizza ₹30 (Asha + Ben), beer ₹20 (Ben), ₹5 tax; Asha paid ₹55. Tax follows what each ordered.",
+  "members": [
+    "asha",
+    "ben"
+  ],
+  "currency": "INR",
+  "amount": "55",
+  "paidBy": "asha",
+  "split": {
+    "type": "itemized",
+    "items": [
+      {
+        "name": "Pizza",
+        "amount": "30",
+        "for": [
+          "asha",
+          "ben"
+        ]
+      },
+      {
+        "name": "Beer",
+        "amount": "20",
+        "for": [
+          "ben"
+        ]
+      }
+    ],
+    "tax": "5"
+  },
+  "expect": {
+    "payers": {
+      "asha": 5500
+    },
+    "splits": {
+      "asha": 1650,
+      "ben": 3850
+    },
+    "balances": {
+      "asha": 3850,
+      "ben": -3850
+    }
+  }
+}
