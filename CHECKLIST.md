@@ -120,9 +120,17 @@ Steps, each its own commit with `make check` green:
       types, so the server's own item/share validation runs too), then
       `GET /api/groups/:id` balances vs. the hand-worked numbers. All 11
       saveable scenarios pass.
-- [ ] **6. Close the CI gap.** Pin the CI Swift version to match local
+- [x] **6. Close the CI gap.** Pin the CI Swift version to match local
       (or add the Linux toolchain to `make check` via a container) so a
       Linux-only compile failure can't hide again.
+      Done 2026-10-27 (local commit; **unverified until pushed** — the
+      matrix only runs on GitHub): `test.yml` now runs PalanceKit on the
+      official `swift:6.0-noble` (the `Package.swift` floor) **and**
+      `swift:6.4-noble` (the dev Mac's Xcode Swift), replacing the
+      third-party setup action. No Docker on the dev Mac, so Linux stays
+      out of `make check`; instead the pre-push hook now prints a loud,
+      non-blocking warning naming any workflow whose latest run on `main`
+      failed — the signal that was missing for six weeks.
 
 ### Ground-up rename: ClanTab → Palance — new bundle ID, new ASC app, 2026-09-27
 

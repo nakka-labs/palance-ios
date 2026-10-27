@@ -91,5 +91,22 @@ elif touches '^(App/|PalanceKit/)'; then
       -quiet CODE_SIGNING_ALLOWED=NO
 fi
 
+# --- Cloud CI on main — warn, never block -----------------------------------
+# The Linux CI once stayed red on main for six weeks unnoticed (`CHECKLIST.md`
+# "Test framework rebuild" step 6). Surface the latest result of every
+# workflow on main here, where someone is actually looking. Silent if `gh`
+# isn't installed or signed in.
+if command -v gh >/dev/null 2>&1; then
+  failing=$(gh run list --branch main --status completed --limit 30 \
+    --json workflowName,conclusion \
+    --jq 'reduce .[] as $r ({}; if has($r.workflowName) then . else . + {($r.workflowName): $r.conclusion} end)
+          | to_entries[] | select(.value == "failure") | .key' 2>/dev/null || true)
+  if [ -n "$failing" ]; then
+    echo "pre-push: WARNING — latest CI run on main is FAILING for:" >&2
+    echo "$failing" | sed 's/^/pre-push:   - /' >&2
+    echo "pre-push:   (not blocking this push — check: gh run list --branch main)" >&2
+  fi
+fi
+
 rm -f "$log"
 echo "pre-push: all checks passed"
