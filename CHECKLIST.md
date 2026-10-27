@@ -155,10 +155,10 @@ the percents that were typed.
       itemized `participantIds`, so re-opening such an expense after a merge
       silently dropped the merged person's part. Now renames inside
       `shares`, `items`, and `percentages` too (test in `group.test.ts`).
-- [ ] **Deploy the worker before any app build that sends `percentages`.**
-      The live v14 worker rejects the unknown key with a 400 — every new
-      percentage expense from a new build would fail until it's deployed
-      (`make worker-deploy`; same lesson as the 2026-09-15 outage).
+- [x] **Deploy the worker before any app build that sends `percentages`.**
+      Done 2026-10-27 (version `285185dd`). The old v14 worker rejected the
+      unknown key with a 400, so this had to go out before any new build
+      (same lesson as the 2026-09-15 outage).
 
 ### Ground-up rename: ClanTab → Palance — new bundle ID, new ASC app, 2026-09-27
 
