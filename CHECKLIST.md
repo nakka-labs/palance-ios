@@ -81,11 +81,19 @@ Steps, each its own commit with `make check` green:
       unreachable behind `canSubmit`) now throw instead. A suspected
       "percentages re-open as 99%" bug was tested and does **not** exist
       for whole-number entry — pinned as a passing test.
-- [ ] **3. Shared split scenarios.** `test-fixtures/splits/*.json` — a
+- [x] **3. Shared split scenarios.** `test-fixtures/splits/*.json` — a
       readable catalogue (draft in → splits out → balances out), seeded
       with the owner's real cases (dinner for 5 with one skipping
       drinks, two payers, percentages summing to 99, ₹100 ÷ 3, …). Swift
       runs draft→splits→balances; the worker runs splits→balances.
+      Done 2026-10-27: 12 hand-computed scenarios (`test-fixtures/splits/`,
+      format + "how to add your own" in `test-fixtures/README.md`);
+      `SplitScenarioTests` (kit) and `worker/test/splits.test.ts` (server
+      validators + TS balance math). **First catch:** `ExpenseDraft.resolve()`
+      accepted percentages adding to 99 (quietly treated as thirds) —
+      unreachable through the Save button, but the logic contract
+      disagreed with itself. Now throws `ValidationError.percentageTotal`.
+      **Owner to-do:** add your real cases as new files.
 - [ ] **4. Invariant tests.** Seeded, dependency-free random drafts for
       every split type: splits sum to the amount exactly, no negative
       share, deterministic, remainder < member count and lands on the
