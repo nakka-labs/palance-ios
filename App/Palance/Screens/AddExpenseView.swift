@@ -71,7 +71,7 @@ struct AddExpenseView: View {
     /// Tax/tip on an itemized expense (`CHECKLIST.md` "Tax/tip proportional
     /// split on itemized expenses") — as strings, same as every other money
     /// field on this screen. Blank (the default) means "none", not "zero" —
-    /// `taxMinorValue`/`tipMinorValue` treat both the same.
+    /// `ExpenseDraft.taxMinor`/`tipMinor` treat both the same.
     @State private var taxText = ""
     @State private var tipText = ""
 
@@ -243,73 +243,35 @@ struct AddExpenseView: View {
         // else). The date stays excluded for a duplicate — today's date
         // is the right default for a fresh copy being logged now, not the
         // original's date.
-        _amountText = State(initialValue: MoneyFormat.plainString(minorUnits: expense.amountMinor))
+        // The money half rehydrates through `ExpenseDraft` (tested in
+        // PalanceKit); duplicating gives line items fresh ids.
+        let rehydrated = ExpenseDraft(
+            rehydrating: expense,
+            memberIds: members.map(\.id),
+            fallbackPayerId: currentMemberId ?? members.first?.id ?? "",
+            keepItemIds: editing != nil
+        )
+        _amountText = State(initialValue: rehydrated.amountText)
         if editing != nil {
             _date = State(initialValue: expense.date)
         }
         _description = State(initialValue: expense.description)
-        // A genuine multi-payer expense (`CHECKLIST.md` "Multiple payers on
-        // one expense") rehydrates into the multi-payer entry mode directly;
-        // `payerId` (nil for that case) only fills the single-payer Picker.
-        if expense.payers.count > 1 {
-            _isMultiPayer = State(initialValue: true)
-            _payerAmountText = State(initialValue: Dictionary(
-                uniqueKeysWithValues: expense.payers.map { ($0.memberId, MoneyFormat.plainString(minorUnits: $0.amountMinor)) }
-            ))
-            _payerId = State(initialValue: currentMemberId ?? members.first?.id ?? "")
-            _selectedPayerIds = State(initialValue: Set(expense.payers.map(\.memberId)))
-        } else {
-            let singlePayerId = expense.payerId ?? currentMemberId ?? members.first?.id ?? ""
-            _payerId = State(initialValue: singlePayerId)
-            _selectedPayerIds = State(initialValue: [singlePayerId])
-        }
+        _isMultiPayer = State(initialValue: rehydrated.isMultiPayer)
+        _payerAmountText = State(initialValue: rehydrated.payerAmountText)
+        _payerId = State(initialValue: rehydrated.payerId)
+        _selectedPayerIds = State(initialValue: rehydrated.isMultiPayer
+            ? Set(expense.payers.map(\.memberId))
+            : [rehydrated.payerId])
         _currency = State(initialValue: expense.currency)
-        _splitType = State(initialValue: expense.splitType)
+        _splitType = State(initialValue: rehydrated.splitType)
         _category = State(initialValue: ExpenseCategory.resolve(name: expense.category, symbolName: expense.categoryIcon))
-        _includedMemberIds = State(initialValue: Set(expense.splits.map(\.memberId)))
-
-        var exact: [String: String] = [:]
-        for split in expense.splits {
-            exact[split.memberId] = MoneyFormat.plainString(minorUnits: split.amountMinor)
-        }
-        _exactAmountText = State(initialValue: exact)
-
-        var percent: [String: String] = [:]
-        if expense.splitType == .percentage, expense.amountMinor > 0 {
-            // Percentages aren't stored — only the resolved minor-unit shares.
-            // Back-compute for the field; a no-op re-save re-resolves and may
-            // shift a minor unit, which the remainder rule absorbs.
-            for split in expense.splits {
-                let pct = (Double(split.amountMinor) / Double(expense.amountMinor) * 100).rounded()
-                percent[split.memberId] = String(Int(pct))
-            }
-        }
-        _percentText = State(initialValue: percent)
-
-        // An itemized expense stores its line items directly — rehydrate them
-        // as drafts. Duplicating gets fresh item ids (a fresh expense); editing
-        // keeps them so a save diffs rather than rebuilds.
-        if expense.splitType == .itemized, let items = expense.items {
-            _itemDrafts = State(initialValue: items.map { item in
-                ItemDraft(
-                    id: editing != nil ? item.id : UUID().uuidString,
-                    name: item.name,
-                    amountText: MoneyFormat.plainString(minorUnits: item.amountMinor),
-                    participantIds: Set(item.participantIds)
-                )
-            })
-            _taxText = State(initialValue: expense.taxMinor.map { MoneyFormat.plainString(minorUnits: $0) } ?? "")
-            _tipText = State(initialValue: expense.tipMinor.map { MoneyFormat.plainString(minorUnits: $0) } ?? "")
-        }
-
-        // A shares expense stores its raw weights — rehydrate them directly
-        // (no back-computing, unlike percentage). Duplicating reuses the same
-        // weights; there are no per-item ids to regenerate.
-        if expense.splitType == .shares, let shares = expense.shares {
-            _shareText = State(initialValue: Dictionary(
-                uniqueKeysWithValues: shares.map { ($0.memberId, String($0.weight)) }
-            ))
-        }
+        _includedMemberIds = State(initialValue: rehydrated.includedMemberIds)
+        _exactAmountText = State(initialValue: rehydrated.exactAmountText)
+        _percentText = State(initialValue: rehydrated.percentText)
+        _itemDrafts = State(initialValue: rehydrated.itemDrafts)
+        _taxText = State(initialValue: rehydrated.taxText)
+        _tipText = State(initialValue: rehydrated.tipText)
+        _shareText = State(initialValue: rehydrated.shareText)
     }
 
     private var isEditing: Bool { editing != nil }
@@ -317,8 +279,27 @@ struct AddExpenseView: View {
     /// The typed amount, resolving a `+`/`-` expression (`CHECKLIST.md`
     /// "Inline calculator on the amount field") — `nil` while it doesn't fully
     /// parse, which keeps the submit button disabled just like a blank field.
-    private var amountMinor: Int64? {
-        MoneyFormat.evaluate(amountText)
+    private var amountMinor: Int64? { draft.amountMinor }
+
+    /// The money half of this form as an `ExpenseDraft` — every total, the
+    /// remainder rule, `canSubmit`'s split checks, and `save()`'s payers +
+    /// splits come from it, so all of that is tested in PalanceKit rather
+    /// than living untested in this view (`CHECKLIST.md` "Test framework
+    /// rebuild" step 2).
+    private var draft: ExpenseDraft {
+        var d = ExpenseDraft(memberIds: members.map(\.id), payerId: payerId)
+        d.amountText = amountText
+        d.isMultiPayer = isMultiPayer
+        d.payerAmountText = payerAmountText
+        d.splitType = splitType
+        d.includedMemberIds = includedMemberIds
+        d.exactAmountText = exactAmountText
+        d.percentText = percentText
+        d.shareText = shareText
+        d.itemDrafts = itemDrafts
+        d.taxText = taxText
+        d.tipText = tipText
+        return d
     }
 
     @FocusState private var amountFocused: Bool
@@ -922,23 +903,14 @@ struct AddExpenseView: View {
         )
     }
 
-    private var payersTotal: Int64 {
-        members.reduce(Int64(0)) { $0 + (MoneyFormat.minorUnits(from: payerAmountText[$1.id] ?? "") ?? 0) }
-    }
+    private var payersTotal: Int64 { draft.payersTotal }
 
     private var payersMismatch: Bool {
         guard let amountMinor else { return false }
         return amountMinor != payersTotal
     }
 
-    /// The entered payers as resolved `ExpensePayment`s (zero/blank rows
-    /// dropped) — used for both `save()` and the running-total row labels.
-    private var enteredPayers: [ExpensePayment] {
-        members.compactMap { member in
-            guard let value = MoneyFormat.minorUnits(from: payerAmountText[member.id] ?? ""), value > 0 else { return nil }
-            return ExpensePayment(memberId: member.id, amountMinor: value)
-        }
-    }
+    private var enteredPayers: [ExpensePayment] { draft.enteredPayers }
 
     /// "Paid by" row summary — the one person's name, or a count once
     /// `PayerPickerView` has more than one selected (`CHECKLIST.md` R12).
@@ -999,24 +971,9 @@ struct AddExpenseView: View {
     // MARK: Shares split
 
     /// Parsed whole-number weight for a member (blank / non-numeric → 0).
-    private func share(for memberId: String) -> Int {
-        max(0, Int(shareText[memberId]?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0)
-    }
+    private func share(for memberId: String) -> Int { draft.share(for: memberId) }
 
-    private var shareTotal: Int {
-        members.reduce(0) { $0 + share(for: $1.id) }
-    }
-
-    /// The resolved per-member splits at the current amount + weights — used for
-    /// the live "pays ₹x" line so it matches exactly what `save()` will send
-    /// (remainder rule included).
-    private func resolvedShareSplits(_ amountMinor: Int64) -> [ExpenseSplit] {
-        let weights = members
-            .map { (memberId: $0.id, weight: share(for: $0.id)) }
-            .filter { $0.weight > 0 }
-        guard !weights.isEmpty else { return [] }
-        return Validation.sharesSplit(amountMinor: amountMinor, weights: weights, remainderRecipient: remainderRecipient)
-    }
+    private var shareTotal: Int { draft.shareTotal }
 
     private func shareTextBinding(for memberId: String) -> Binding<String> {
         Binding(
@@ -1034,7 +991,8 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var shareSplitRows: some View {
-        let resolved = amountMinor.map { resolvedShareSplits($0) } ?? []
+        // Matches exactly what `save()` sends (remainder rule included).
+        let resolved = draft.previewShareSplits()
         memberSearchField
         ForEach(filteredMembers) { member in
             let w = share(for: member.id)
@@ -1066,20 +1024,8 @@ struct AddExpenseView: View {
 
     // MARK: Itemized split
     //
-    // The editor UI moved to `Components/ItemizedSplitEditor.swift`
-    // (`CHECKLIST.md` D5) — `taxMinorValue`/`tipMinorValue`/`itemizedTotal`
-    // stay here because `canSubmit`/`save()` need them too, via the same
-    // `ItemizedSplitMath` the editor itself uses, so the two can't drift.
-
-    private var taxMinorValue: Int64 { MoneyFormat.minorUnits(from: taxText) ?? 0 }
-    private var tipMinorValue: Int64 { MoneyFormat.minorUnits(from: tipText) ?? 0 }
-
-    /// What the itemization actually adds up to: the items themselves, plus
-    /// tax/tip (`CHECKLIST.md` "Tax/tip proportional split on itemized
-    /// expenses") — this is what must equal `amountMinor`, not the items alone.
-    private var itemizedTotal: Int64 {
-        ItemizedSplitMath.total(itemDrafts, taxMinor: taxMinorValue, tipMinor: tipMinorValue)
-    }
+    // The editor UI is `Components/ItemizedSplitEditor.swift`; its totals
+    // come from the same `ItemizedSplitMath` (PalanceKit) `ExpenseDraft` uses.
 
     private func includedBinding(for memberId: String) -> Binding<Bool> {
         Binding(
@@ -1108,20 +1054,12 @@ struct AddExpenseView: View {
         )
     }
 
-    private var exactSplitsTotal: Int64 {
-        members.reduce(Int64(0)) { partial, member in
-            partial + (MoneyFormat.minorUnits(from: exactAmountText[member.id] ?? "") ?? 0)
-        }
-    }
+    private var exactSplitsTotal: Int64 { draft.exactSplitsTotal }
 
     /// Parsed whole-number percent for a member (a blank or non-numeric field is `0`).
-    private func percent(for memberId: String) -> Int {
-        Int(percentText[memberId]?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
-    }
+    private func percent(for memberId: String) -> Int { draft.percent(for: memberId) }
 
-    private var percentTotal: Int {
-        members.reduce(0) { $0 + percent(for: $1.id) }
-    }
+    private var percentTotal: Int { draft.percentTotal }
 
     private var percentRemainingLabel: String {
         let remaining = 100 - percentTotal
@@ -1135,134 +1073,23 @@ struct AddExpenseView: View {
         return remaining > 0 ? "\(formatted) unassigned" : "\(formatted) over the total"
     }
 
+    /// The description is this view's own check; everything about the money
+    /// is `ExpenseDraft.canResolve`.
     private var canSubmit: Bool {
-        guard let amountMinor, amountMinor > 0 else { return false }
         guard !description.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-        if isMultiPayer {
-            guard payersTotal == amountMinor, !enteredPayers.isEmpty else { return false }
-        } else {
-            guard !payerId.isEmpty else { return false }
-        }
-
-        switch splitType {
-        case .equal:
-            return !includedMemberIds.isEmpty
-        case .exact:
-            return exactSplitsTotal == amountMinor
-        case .percentage:
-            return percentTotal == 100
-        case .shares:
-            return shareTotal > 0
-        case .itemized:
-            guard !itemDrafts.isEmpty, itemizedTotal == amountMinor else { return false }
-            return itemDrafts.allSatisfy { item in
-                (MoneyFormat.minorUnits(from: item.amountText) ?? 0) > 0 && !item.participantIds.isEmpty
-            }
-        }
-    }
-
-    /// Who the remainder of an uneven split lands on — normally "the payer",
-    /// which stops being a single id once multiple payers are entered
-    /// (`CHECKLIST.md` "Multiple payers on one expense"). The largest
-    /// contributor is the closest equivalent; falls back to the first member
-    /// if that's somehow ambiguous (ties broken by member order).
-    private var remainderRecipient: String {
-        guard isMultiPayer else { return payerId }
-        return enteredPayers.max { $0.amountMinor < $1.amountMinor }?.memberId ?? members.first?.id ?? payerId
+        return draft.canResolve
     }
 
     private func save() async {
-        guard let amountMinor else { return }
+        guard canSubmit else { return }
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
 
         do {
-            let payers: [ExpensePayment] = isMultiPayer
-                ? enteredPayers
-                : [ExpensePayment(memberId: payerId, amountMinor: amountMinor)]
-            try Validation.validatePayersSum(amountMinor: amountMinor, payers: payers)
-
-            let splits: [ExpenseSplit]
-            // Only an itemized expense carries `items`, only a shares expense
-            // carries `shares`, on the wire.
-            var items: [LineItem]?
-            var shares: [ShareWeight]?
-            switch splitType {
-            case .equal:
-                let memberIds = members.map(\.id).filter { includedMemberIds.contains($0) }
-                splits = Validation.equalSplit(amountMinor: amountMinor, memberIds: memberIds, remainderRecipient: remainderRecipient)
-            case .exact:
-                splits = members.compactMap { member in
-                    guard let value = MoneyFormat.minorUnits(from: exactAmountText[member.id] ?? ""), value > 0 else {
-                        return nil
-                    }
-                    return ExpenseSplit(memberId: member.id, amountMinor: value)
-                }
-            case .percentage:
-                // Resolve percentages to exact minor units here — the wire only
-                // ever carries `amountMinor` shares (DESIGN.md §6).
-                let weights = members
-                    .map { (memberId: $0.id, weight: percent(for: $0.id)) }
-                    .filter { $0.weight > 0 }
-                splits = Validation.percentageSplit(
-                    amountMinor: amountMinor,
-                    weights: weights,
-                    remainderRecipient: remainderRecipient
-                )
-            case .shares:
-                // Resolve ratios to exact minor units here — same as percentage,
-                // the wire only carries `amountMinor` shares (DESIGN.md §6). The
-                // raw weights ride along too, for re-edit.
-                let entered = members
-                    .map { (member: $0, weight: share(for: $0.id)) }
-                    .filter { $0.weight > 0 }
-                shares = entered.map { ShareWeight(memberId: $0.member.id, weight: $0.weight) }
-                try Validation.validateShares(
-                    weights: shares ?? [],
-                    validMemberIds: Set(members.map(\.id))
-                )
-                splits = Validation.sharesSplit(
-                    amountMinor: amountMinor,
-                    weights: entered.map { (memberId: $0.member.id, weight: $0.weight) },
-                    remainderRecipient: remainderRecipient
-                )
-            case .itemized:
-                // Order each item's participants by the group's member order so
-                // the resolved splits are deterministic regardless of tap order.
-                let resolved = itemDrafts.map { draft in
-                    LineItem(
-                        id: draft.id,
-                        name: draft.name.trimmingCharacters(in: .whitespaces),
-                        amountMinor: MoneyFormat.minorUnits(from: draft.amountText) ?? 0,
-                        participantIds: members.map(\.id).filter { draft.participantIds.contains($0) }
-                    )
-                }
-                items = resolved
-                // Resolve the line items to exact per-member shares — the wire
-                // carries both, and the server checks they agree (DESIGN.md §6).
-                // Tax/tip (`CHECKLIST.md` "Tax/tip proportional split on
-                // itemized expenses") are distributed proportionally by each
-                // participant's own item subtotal, not evenly.
-                try Validation.validateItems(
-                    amountMinor: amountMinor,
-                    items: resolved,
-                    validMemberIds: Set(members.map(\.id)),
-                    taxMinor: taxMinorValue,
-                    tipMinor: tipMinorValue
-                )
-                splits = Validation.itemizedSplit(
-                    items: resolved,
-                    remainderRecipient: remainderRecipient,
-                    taxMinor: taxMinorValue,
-                    tipMinor: tipMinorValue
-                )
-            }
-
-            // The same rule the server enforces (DESIGN.md §6) - catching a
-            // mismatch here means a clear error before it ever hits the network,
-            // even though `canSubmit` should already rule this out.
-            try Validation.validateSplitsSum(amountMinor: amountMinor, splits: splits)
+            // Payers + splits (+ items/shares/tax/tip) — `ExpenseDraft.resolve()`
+            // runs the same checks the server enforces (DESIGN.md §6).
+            let resolved = try draft.resolve()
 
             // `.uncategorized` is the "no category" sentinel — send nil, not the
             // placeholder name, so it stays distinguishable from a real category.
@@ -1273,17 +1100,17 @@ struct AddExpenseView: View {
             let hadAttachments = !(editing?.attachments ?? []).isEmpty
             let request = AddExpenseRequest(
                 id: isEditing ? nil : expenseId,
-                payers: payers,
-                amountMinor: amountMinor,
+                payers: resolved.payers,
+                amountMinor: resolved.amountMinor,
                 currency: currency,
                 description: description,
                 date: date,
                 splitType: splitType,
-                splits: splits,
-                items: items,
-                shares: shares,
-                taxMinor: (splitType == .itemized && taxMinorValue > 0) ? taxMinorValue : nil,
-                tipMinor: (splitType == .itemized && tipMinorValue > 0) ? tipMinorValue : nil,
+                splits: resolved.splits,
+                items: resolved.items,
+                shares: resolved.shares,
+                taxMinor: resolved.taxMinor,
+                tipMinor: resolved.tipMinor,
                 category: isCategorised ? category.name : nil,
                 categoryIcon: isCategorised ? category.symbolName : nil,
                 attachments: (attachmentKeys.isEmpty && !hadAttachments) ? nil : attachmentKeys

@@ -62,12 +62,25 @@ Steps, each its own commit with `make check` green:
       `hasLoadedGroups` (true on an empty-but-loaded list, false offline
       and after sign-out). Offline now shows the loading placeholder, not
       a false "settled".
-- [ ] **2. `ExpenseDraft` in PalanceKit.** Everything `AddExpenseView.save()`
+- [x] **2. `ExpenseDraft` in PalanceKit.** Everything `AddExpenseView.save()`
       does to turn form state into `payers` + `splits` (+ `items`/`shares`)
       moves into a pure `ExpenseDraft.resolve() -> Result<…, DraftError>`,
       plus `ExpenseDraft(editing:)` for the reverse. The view binds to it;
       no behavior change, proven by tests written against the current
       behavior first.
+      Done 2026-10-27: `Logic/ExpenseDraft.swift` (+ `ItemDraft` /
+      `ItemizedSplitMath` moved from the app), `ExpenseDraftTests` (25,
+      scenario-named: equal incl. payer-excluded and remainder cases,
+      the amount calculator, exact, percentage, shares + live preview,
+      itemized with tax, multi-payer incl. tie-break, and resolve → save
+      → reopen → resolve round-trips for every split type). The view keeps
+      its `@State` fields and assembles a `draft` from them; `canSubmit`,
+      every total, the share preview, rehydration, and `save()`'s payers +
+      splits all delegate. Two edge cases that used to `precondition`-crash
+      (equal with nobody included, percentage with no weights — both
+      unreachable behind `canSubmit`) now throw instead. A suspected
+      "percentages re-open as 99%" bug was tested and does **not** exist
+      for whole-number entry — pinned as a passing test.
 - [ ] **3. Shared split scenarios.** `test-fixtures/splits/*.json` — a
       readable catalogue (draft in → splits out → balances out), seeded
       with the owner's real cases (dinner for 5 with one skipping

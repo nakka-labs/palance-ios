@@ -1,40 +1,8 @@
 import SwiftUI
 import PalanceKit
 
-/// One editable line item for an `.itemized` split — the mutable, string-typed
-/// counterpart to `PalanceKit.LineItem`, resolved to exact splits only on
-/// save. Lives alongside its editor (`CHECKLIST.md` D5) since nothing outside
-/// itemized-split editing ever touches it.
-struct ItemDraft: Identifiable {
-    let id: String
-    var name: String
-    var amountText: String
-    var participantIds: Set<String>
-
-    init(id: String = UUID().uuidString, name: String = "", amountText: String = "", participantIds: Set<String>) {
-        self.id = id
-        self.name = name
-        self.amountText = amountText
-        self.participantIds = participantIds
-    }
-}
-
-/// Pure math shared between this editor's own row coloring and
-/// `AddExpenseView`'s `canSubmit`/`save()` (which need the same total to
-/// validate against, but don't otherwise touch the editor UI) — one
-/// implementation so the two can never drift (`CHECKLIST.md` D5).
-enum ItemizedSplitMath {
-    static func itemsOnlyTotal(_ drafts: [ItemDraft]) -> Int64 {
-        drafts.reduce(Int64(0)) { $0 + (MoneyFormat.minorUnits(from: $1.amountText) ?? 0) }
-    }
-
-    /// Items + tax + tip — what must equal the expense's own amount
-    /// (`CHECKLIST.md` "Tax/tip proportional split on itemized expenses"),
-    /// not the items alone.
-    static func total(_ drafts: [ItemDraft], taxMinor: Int64, tipMinor: Int64) -> Int64 {
-        itemsOnlyTotal(drafts) + taxMinor + tipMinor
-    }
-}
+// `ItemDraft` and `ItemizedSplitMath` moved to PalanceKit
+// (`Logic/ExpenseDraft.swift`) with the rest of the form's money logic.
 
 /// The itemized-split editor: line items (name, amount, participants),
 /// tax/tip, and the running total vs. the expense's own amount. Extracted
