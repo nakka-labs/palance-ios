@@ -111,9 +111,15 @@ Steps, each its own commit with `make check` green:
       slightly different whole percents than were typed — still sums to
       100 and saves. **Owner call:** store typed percents on the wire
       (like `shares`) to close that fully — a worker + client change.
-- [ ] **5. End-to-end in the worker suite.** Each scenario POSTed
+- [x] **5. End-to-end in the worker suite.** Each scenario POSTed
       through the real router into a Durable Object, then
       `GET /api/groups/:id` balances compared to the fixture.
+      Done 2026-10-27: `worker/test/splits-e2e.test.ts` — per scenario, a
+      real group + members via the router, the expense POSTed exactly as
+      the app sends it (incl. share weights / line items + tax for those
+      types, so the server's own item/share validation runs too), then
+      `GET /api/groups/:id` balances vs. the hand-worked numbers. All 11
+      saveable scenarios pass.
 - [ ] **6. Close the CI gap.** Pin the CI Swift version to match local
       (or add the Linux toolchain to `make check` via a container) so a
       Linux-only compile failure can't hide again.

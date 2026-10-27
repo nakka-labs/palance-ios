@@ -16,6 +16,7 @@ export default defineWorkersProject({
       "test/notify.test.ts",
       "test/reports.test.ts",
       "test/media.test.ts",
+      "test/splits-e2e.test.ts",
     ],
     poolOptions: {
       workers: {
